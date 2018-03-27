@@ -40,7 +40,7 @@ rtm.on( 'message', ( event ) => {
     // Give Message to Api AI
     fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
         method: 'POST',
-        headers: { "bearer": API_AI_DEV_TOKEN, "content-type": "application/json" },
+        headers: { "authorization": "Bearer " + API_AI_ACCESS_TOKEN, "content-type": "application/json" },
         body: {
             sessionId: "ai84625",
             lang: 'en',
