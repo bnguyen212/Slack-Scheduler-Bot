@@ -5,17 +5,6 @@ var app = require( '../server/server.js' );
 var http = require( 'http' );
 var fetch = require( 'node-fetch' );
 
-var SlackClient = require( '@slack/client' );
-var RTMClient = SlackClient.RTMClient;
-var WebClient = SlackClient.WebClient;
-
-if( !process.env.SLACK_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_ACCESS_TOKEN not found' ); process.exit(1); return; }
-if( !process.env.SLACK_BOT_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_BOT_ACCESS_TOKEN not found' ); process.exit(1); return; }
-if( !process.env.API_AI_ACCESS_TOKEN ) { throw new Error( 'process.env.API_AI_ACCESS_TOKEN not found' ); process.exit(1); return; }
-var SLACK_ACCESS_TOKEN = process.env.SLACK_ACCESS_TOKEN;
-var SLACK_BOT_ACCESS_TOKEN = process.env.SLACK_BOT_ACCESS_TOKEN;
-var API_AI_ACCESS_TOKEN = process.env.API_AI_ACCESS_TOKEN;
-
 /**
  * Get port from environment and store in Express.
  */
@@ -33,44 +22,6 @@ var server = http.createServer( app );
 server.listen( port );
 server.on('error', onError);
 server.on('listening', onListening);
-
-/**
- * Create and set up Slackbot RTM ( Real Time Messaging ) and its event listener
- * Create and set up WebClient for Slackbot
- */
-var rtm = new RTMClient( SLACK_BOT_ACCESS_TOKEN );
-rtm.start();
-
-var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
-
-rtm.on( 'message', ( event ) => {
-    if( event.subtype === "bot_message" ) return;
-    web.chat.postMessage({
-        "channel": event.channel,
-        "text": event.text,
-        "attachments": [{
-            "text": "Confirm",
-            "fallback": "Unable to confirm a Reminder or Meeting",
-            "callback_id": "confirm",
-            "actions": [
-                { "type": "button", "name": "select", "value": "yes", "text": "Yes" },
-                { "type": "button", "name": "select", "value": "no", "text": "No" }
-            ]
-        }]
-    });
-    // .catch( webMsgSendError => { console.log( "Web Message Send Error: " + webMsgSendError ); } );
-    // .then( res => console.log( res.ts ) );
-    // Give Message to Api AI
-    /* fetch( 'https://api.dialogflow.com/v1/query?v=20150910&contexts=shop&lang=en&query=apple&sessionId=12345&timezone=America/New_York', {
-        headers: { "Bearer": API_AI_ACCESS_TOKEN }
-    })
-    .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
-    .then( response => response.json() )
-    .then( response => {
-        console.log( response );
-    }); */
-});
-
 
 /**
  * Normalize a port into a number, string, or false.
