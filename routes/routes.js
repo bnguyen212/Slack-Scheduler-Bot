@@ -46,7 +46,7 @@ rtm.on( 'message', ( event ) => {
         }
     })
     .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
-    .then( response => response.json() )
+    // .then( response => response.json() )
     .then( response => {
         if( response.result.actionIncomplete ) {
             web.chat.postMessage({
