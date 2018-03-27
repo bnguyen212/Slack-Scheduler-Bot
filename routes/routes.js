@@ -25,6 +25,7 @@ var DOMAIN = process.env.DOMAIN;
 var SLACK_ACCESS_TOKEN = process.env.SLACK_ACCESS_TOKEN;
 var SLACK_BOT_ACCESS_TOKEN = process.env.SLACK_BOT_ACCESS_TOKEN;
 var API_AI_ACCESS_TOKEN = process.env.API_AI_ACCESS_TOKEN;
+var API_AI_DEV_TOKEN = process.env.API_AI_DEV_TOKEN;
 
 /**
  * Create and set up Slackbot RTM ( Real Time Messaging ) and its event listener
