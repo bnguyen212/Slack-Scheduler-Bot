@@ -36,7 +36,7 @@ var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
     // Give Message to Api AI
-    fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
+    fetch( 'https://api.dialogflow.com/v1/?v=20150910', {
         method: 'POST',
         headers: { bearer: API_AI_ACCESS_TOKEN, "content-type": "application/json" },
         body: {
