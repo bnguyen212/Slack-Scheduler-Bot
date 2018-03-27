@@ -48,7 +48,8 @@ router.post( '/event', ( req, res ) => {
 });
 
 router.post( '/slack/action', ( req, res ) => {
-    console.log( req );
+    var action = JSON.parse( req.body.payload );
+    console.log( action );
 });
 
 module.exports = router;
