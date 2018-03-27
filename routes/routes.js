@@ -16,6 +16,7 @@ if( !process.env.DOMAIN ) { throw new Error( 'process.env.DOMAIN not found' ); p
 if( !process.env.SLACK_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_ACCESS_TOKEN not found' ); process.exit(1); return; }
 if( !process.env.SLACK_BOT_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_BOT_ACCESS_TOKEN not found' ); process.exit(1); return; }
 if( !process.env.API_AI_ACCESS_TOKEN ) { throw new Error( 'process.env.API_AI_ACCESS_TOKEN not found' ); process.exit(1); return; }
+if( !process.env.API_AI_DEV_TOKEN ) { throw new Error( 'process.env.API_AI_DEV_TOKEN not found' ); process.exit(1); return; }
 
 var GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 var GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -36,9 +37,9 @@ var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
     // Give Message to Api AI
-    fetch( 'https://api.dialogflow.com/v1/?v=20150910', {
+    fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
         method: 'POST',
-        headers: { bearer: API_AI_ACCESS_TOKEN, "content-type": "application/json" },
+        headers: { Bearer: API_AI_DEV_TOKEN, "Content-Type": "application/json" },
         body: {
             sessionId: "ai84625",
             lang: 'en',
