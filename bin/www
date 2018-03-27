@@ -4,7 +4,6 @@
  * Module dependencies.
  */
 
-var crypto = require( 'crypto' );
 var app = require('../server/server.js');
 var http = require('http');
 
@@ -17,11 +16,9 @@ app.set('port', port);
 
 /**
  * Create HTTP server.
- * Create Socket Io
  */
 
 var server = http.createServer(app);
-var io = require( 'socket.io' )( server );
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -90,16 +87,3 @@ function onListening() {
     : 'port ' + addr.port;
   console.log( 'Listening on ' + bind + '\n' )
 }
-
-
-// Hash function
-function hash256( word ) {
-    var hash = crypto.createHash( 'sha256' );
-    hash.update( word + 'amazingDisplayOfSkill,withTheGreatestOfEase' );
-    return hash.digest( 'hex' );
-}
-
-/** Socket Io events **/
-io.on( 'connection', function( socket ) {
-    
-});
