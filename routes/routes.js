@@ -20,30 +20,35 @@ var Models = require( '../models/models.js' );
     var Task = Models.Task;
     var Meeting = Models.Meeting;
 
+// Routes
 router.get( '/auth', ( req, res ) => {
     if( !req.query.auth_id ) { throw new Error( 'auth_id not found (in query)' ); return; }
     var auth = new googleAuth();
     var oauth2Client = new auth.OAuth2( GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DOMAIN + '/connect/callback' );
     var url = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: [
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/calendar'
-      ],
-      state: encodeURIComponent( JSON.stringify({
-        auth_id: req.query.auth_id
-      }))
+        access_type: 'offline',
+        prompt: 'consent',
+        scope: [
+          'https://www.googleapis.com/auth/userinfo.profile',
+          'https://www.googleapis.com/auth/calendar'
+        ],
+        state: encodeURIComponent( JSON.stringify({
+          auth_id: req.query.auth_id
+        }))
     });
     res.redirect( url )
 });
 
 router.get( '/connect/callback', ( req, res ) => {
-  if( !req.query.code ) {  }
+    if( !req.query.code ) {  }
 });
 
 router.post( '/event', ( req, res ) => {
-    res.json({ text: "Got Message" });
+    res.json({ text: req.body.msg });
+});
+
+router.post( '/slack/action', ( req, res ) => {
+    console.log( req.body.value );
 });
 
 module.exports = router;
