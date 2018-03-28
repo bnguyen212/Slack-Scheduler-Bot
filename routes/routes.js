@@ -48,19 +48,19 @@ var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 /**
  *  userStatus: {
       userId: {
-        intent: String,
+        intent: String,   // meeting:add, reminder:add
         subject: String,
         date: Date,
-        date-period: [ start Date, end Date ]
+        // date-period: [ start Date, end Date ] --- Unused
       }
     }
  */
 var userStatus = {};
 
+
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
     // Give Message to Api AI
-    console.log( "rtm on message", event.user );
     if( userStatus[ event.user ] ) {
         web.chat.postMessage({
             "channel": event.channel,
@@ -89,9 +89,11 @@ rtm.on( 'message', ( event ) => {
         }
         var intent = response.result.metadata.intentName;
         var subject = response.result.parameters.subject.join( ' ' );
+        var time = response.result.parameters.time;
         var date = response.result.parameters.date;
         var datePeriod = response.result.parameters[ "date-period" ];
-        userStatus[ event.user ] = { intent, subject, date, datePeriod };
+        userStatus[ event.user ] = { intent, subject, time, date, datePeriod };
+        
         web.chat.postMessage({
             "channel": event.channel,
             // "text": event.text,
@@ -135,15 +137,26 @@ router.post( '/slack/action', ( req, res ) => {
     var action = JSON.parse( req.body.payload );
     var confirmSelect = action.actions[0].value;
     var userId = String(action.user.id);
-    console.log( "/slack/action/ - user Id", userId )
+    
+    var intent;
+    switch( userStatus[ userId ].intent ) {
+        case "reminder:add": { intent = "Reminder"; break; }
+        case "meeting:add": { intent = "Meeting"; break; }
+    }
+    var time = userStatus[ userId ].time;
+    var date = userStatus[ userId ].date;
+    var subject = userStatus[ userId ].subject;
+    var responseString = ""
+    
+    if( confirmSelect === "yes" ) { responseString += "Confirmed "; }
+    else if( confirmSelect === "no" ) { responseString += "Cancelled "; }
+    responseString += intent;
+    if( subject ) { responseString += " to " + subject; }
+    if( time ) { responseString += " at " + time; }
+    if( date ) responseString += " on " + date;
+    responseString += '.'
     userStatus[ userId ] = null;
-    if( confirmSelect === "yes" ) {
-        
-    }
-    else if( confirmSelect === "no" ) {
-        
-    }
-    res.json({});
+    res.send( responseString );
 });
 
 module.exports = router;
