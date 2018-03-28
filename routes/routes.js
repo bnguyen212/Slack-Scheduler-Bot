@@ -141,13 +141,13 @@ router.post( '/slack/action', ( req, res ) => {
     
     var intent;
     switch( userStatus[ userId ].intent ) {
-        case "reminder:add": intent = "Reminder"; break;
+        case "reminderme:add": intent = "Reminder"; break;
         case "meeting:add": intent = "Meeting"; break;
     }
     var time = userStatus[ userId ].time;
     var date = userStatus[ userId ].date;
     var subject = userStatus[ userId ].subject;
-    var responseString = ""
+    var responseString = "";
     
     if( confirmSelect === "yes" ) { responseString += "Confirmed "; }
     else if( confirmSelect === "no" ) { responseString += "Cancelled "; }
