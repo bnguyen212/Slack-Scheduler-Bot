@@ -35,23 +35,26 @@ var rtm = new RTMClient( SLACK_BOT_ACCESS_TOKEN );
 rtm.start();
 var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 
+// Object to see if a User has a pending request - If so, that User must Confirm or Cancel that request before making a new request
+  // The keys are User Slack Id's
+  // The values are either "Pending" or ""
+var userStatus = {};
+
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
     // Give Message to Api AI
+    if( !userStatus[ event.user ] )
     fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
         method: 'POST',
         headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
-        body: {
+        body: JSON.stringify({
             sessionId: "aixm84625",
             lang: 'en',
-            query: event.text,
-            event: {
-                name: "Get Ai Response" 
-            }
-        }
+            query: event.text
+        })
     })
     .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
-    // .then( response => response.json() )
+    .then( response => response.json() )
     .then( response => {
         console.log( response );
         if( response.result.actionIncomplete ) {
@@ -63,7 +66,7 @@ rtm.on( 'message', ( event ) => {
         }
         web.chat.postMessage({
             "channel": event.channel,
-            "text": event.text,
+            // "text": event.text,
             "attachments": [{
                 "text": response.result.fulfillment.speech,
                 "fallback": "Unable to confirm a Reminder or Meeting",
@@ -110,7 +113,7 @@ router.get( '/connect/callback', ( req, res ) => {
 router.post( '/slack/action', ( req, res ) => {
     var action = JSON.parse( req.body.payload );
     var actionValue = action.actions[0].value;
-    console.log( actionValue );
+    console.log( action );
 });
 
 module.exports = router;
