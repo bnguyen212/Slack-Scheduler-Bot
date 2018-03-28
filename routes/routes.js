@@ -103,7 +103,6 @@ rtm.on( 'message', ( event ) => {
                 var time = response.result.parameters.time;
                 var date = response.result.parameters.date;
                 var datePeriod = response.result.parameters[ "date-period" ];
-                foundUser.status = { intent, subject, time, date, datePeriod };
                 
                 web.chat.postMessage({
                     "channel": event.channel,
@@ -118,23 +117,26 @@ rtm.on( 'message', ( event ) => {
                         ]
                     }]
                 });
-            });
-        }
-    });
+                
+                foundUser.status = { intent, subject, time, date, datePeriod };
+                return foundUser.save();
+            })
+            .catch( userSaveError => console.log( "User Save Error:", userSaveError ) );
+        } // End of Else Statement
+    }); // End of User.FindOne
 });
 
 // Routes
 router.post( '/', ( req, res ) => { res.send("Connected to Slack Scheduler Bot") });
 
+// Google Calendar Authentication - Prompt the User if they have not given permission
 router.get( '/auth', ( req, res ) => {
-    // Google Calendar Authentication - Prompt the User if they have not given permission
-    // if( !req.query.auth_id ) { throw new Error( 'auth_id not found (in query)' ); return; }
     var url = googleAuth.generateAuthUrl( req.query.auth_id );
     res.redirect( url );
 });
 
+// Callback after a User has logged in through Google
 router.get( '/connect/callback', ( req, res ) => {
-    // Callback after a User has logged in through Google
     if( !req.query.code ) { return res.send( "No Code/Token found, try again." ); }
     googleAuth.getToken( req.query.code )
     .catch( codeGetError => res.status(500).send( "Google OAuth2 Code Get Error:", codeGetError ) )
