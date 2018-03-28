@@ -53,7 +53,7 @@ rtm.on( 'message', ( event ) => {
             .then( savedUser => {
                 web.chat.postMessage({
                     "channel": event.channel,
-                    "text": "Google Log In: " + DOMAIN + "/auth?auth_id=" + savedUser._id
+                    "text": "Google Log In: " + DOMAIN + "auth?auth_id=" + savedUser._id
                 });
             });
         }
@@ -62,7 +62,7 @@ rtm.on( 'message', ( event ) => {
             console.log( "RTM Msg: User's Google Authentication token expired" );
             web.chat.postMessage({
                 "channel": event.channel,
-                "text": "Google Log In: " + DOMAIN + "/auth?auth_id=" + foundUser._id
+                "text": "Google Log In: " + DOMAIN + "auth?auth_id=" + foundUser._id
             });
         }
         // If the Slack Bot has a pending request from the User, ask the User to Cancel or Confirm it
@@ -177,7 +177,7 @@ router.post( '/slack/action', ( req, res ) => {
         if( confirmSelect === "yes" ) { responseString += "Confirmed "; }
         else if( confirmSelect === "no" ) { responseString += "Cancelled "; }
         responseString += intent;
-        if( subject ) { responseString += ' to \"' + subject + '"'; }
+        if( subject ) { responseString += ' to "' + subject + '"'; }
         if( time ) { responseString += " at " + time; }
         if( date ) responseString += " on " + date;
         responseString += '.';
