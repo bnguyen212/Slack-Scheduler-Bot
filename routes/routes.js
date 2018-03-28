@@ -56,7 +56,7 @@ rtm.on( 'message', ( event ) => {
     .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
     .then( response => response.json() )
     .then( response => {
-        console.log( response );
+        // console.log( response );
         if( response.result.actionIncomplete ) {
             web.chat.postMessage({
                 "channel": event.channel,
@@ -112,8 +112,11 @@ router.get( '/connect/callback', ( req, res ) => {
 
 router.post( '/slack/action', ( req, res ) => {
     var action = JSON.parse( req.body.payload );
-    var actionValue = action.actions[0].value;
-    console.log( action );
+    var confirmSelect = action.actions[0].value;
+    var userId = action.user.id;
+    if( !userStatus[ userId ] ) userStatus.userId = "";
+    console.log( "Original Message", action.original_message.attachments )
+    // console.log( confirmSelect );
 });
 
 module.exports = router;
