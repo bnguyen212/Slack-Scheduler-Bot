@@ -60,7 +60,8 @@ var userStatus = {};
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
     // Give Message to Api AI
-    if( userStatus[ event.user ] !== null ) {
+    console.log( "rtm on message", event.user );
+    if( userStatus[ event.user ] ) {
         web.chat.postMessage({
             "channel": event.channel,
             "text": "Looks like you have a response to answer, please Confirm or Cancel."
@@ -79,7 +80,6 @@ rtm.on( 'message', ( event ) => {
     .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
     .then( response => response.json() )
     .then( response => {
-        console.log( response );
         if( response.result.actionIncomplete || response.result.action === "input.welcome" || response.result.metadata.intentName === "Default Welcome Intent" ) {
             web.chat.postMessage({
                 "channel": event.channel,
@@ -134,9 +134,8 @@ router.get( '/connect/callback', ( req, res ) => {
 router.post( '/slack/action', ( req, res ) => {
     var action = JSON.parse( req.body.payload );
     var confirmSelect = action.actions[0].value;
-    var userId = action.user.id;
-    // console.log( "Original Message", action.original_message.attachments )
-    // console.log( "Action:", action );
+    var userId = String(action.user.id);
+    console.log( "/slack/action/ - user Id", userId )
     userStatus[ userId ] = null;
     if( confirmSelect === "yes" ) {
         
