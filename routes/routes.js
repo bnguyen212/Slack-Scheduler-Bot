@@ -42,15 +42,31 @@ var rtm = new RTMClient( SLACK_BOT_ACCESS_TOKEN );
 rtm.start();
 var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 
-// Object to see if a User has a pending request - If so, that User must Confirm or Cancel that request before making a new request
+// userStatus is an Object to see if a User has a pending request - If so, that User must Confirm or Cancel that request before making a new request
   // The keys are User Slack Id's
-  // The values are either "Pending" or ""
+  // The values are either null, or an object that represents a requested action
+/**
+ *  userStatus: {
+      userId: {
+        intent: String,
+        subject: String,
+        date: Date,
+        date-period: [ start Date, end Date ]
+      }
+    }
+ */
 var userStatus = {};
 
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
     // Give Message to Api AI
-    if( !userStatus[ event.user ] )
+    if( userStatus[ event.user ] !== null ) {
+        web.chat.postMessage({
+            "channel": event.channel,
+            "text": "Looks like you have a response to answer, please Confirm or Cancel."
+        });
+        return;
+    }
     fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
         method: 'POST',
         headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
@@ -63,14 +79,19 @@ rtm.on( 'message', ( event ) => {
     .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
     .then( response => response.json() )
     .then( response => {
-        // console.log( response );
-        if( response.result.actionIncomplete ) {
+        console.log( response );
+        if( response.result.actionIncomplete || response.result.action === "input.welcome" || response.result.metadata.intentName === "Default Welcome Intent" ) {
             web.chat.postMessage({
                 "channel": event.channel,
                 "text": response.result.fulfillment.speech
             });
             return;
         }
+        var intent = response.result.metadata.intentName;
+        var subject = response.result.parameters.subject.join( ' ' );
+        var date = response.result.parameters.date;
+        var datePeriod = response.result.parameters[ "date-period" ];
+        userStatus[ event.user ] = { intent, subject, date, datePeriod };
         web.chat.postMessage({
             "channel": event.channel,
             // "text": event.text,
@@ -79,8 +100,8 @@ rtm.on( 'message', ( event ) => {
                 "fallback": "Unable to confirm a Reminder or Meeting",
                 "callback_id": "confirm",
                 "actions": [
-                    { "type": "button", "name": "select", "value": "yes", "text": "Yes" },
-                    { "type": "button", "name": "select", "value": "no", "text": "No" }
+                    { "type": "button", "name": "select", "value": "yes", "text": "Confirm" },
+                    { "type": "button", "name": "select", "value": "no", "text": "Cancel", "style": "danger" }
                 ]
             }]
         });
@@ -114,9 +135,16 @@ router.post( '/slack/action', ( req, res ) => {
     var action = JSON.parse( req.body.payload );
     var confirmSelect = action.actions[0].value;
     var userId = action.user.id;
-    if( !userStatus[ userId ] ) userStatus.userId = "";
     // console.log( "Original Message", action.original_message.attachments )
-    console.log( req.body );
+    // console.log( "Action:", action );
+    userStatus[ userId ] = null;
+    if( confirmSelect === "yes" ) {
+        
+    }
+    else if( confirmSelect === "no" ) {
+        
+    }
+    res.json({});
 });
 
 module.exports = router;
