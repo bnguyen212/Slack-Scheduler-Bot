@@ -180,12 +180,10 @@ router.post( '/slack/action', ( req, res ) => {
         if( date ) responseString += " on " + date;
         responseString += '.';
         foundUser.status = null;
+        res.send( responseString );
         return foundUser.save();
     })
-    .catch( userSaveError => res.status(500).send( "User Save Error: " + userSaveError ) )
-    .then( savedUser => {
-        res.send( responseString );
-    })
+    .catch( userSaveError => res.status(500).send( "User Save Error: " + userSaveError ) );
 });
 
 module.exports = router;
