@@ -27,6 +27,13 @@ var SLACK_BOT_ACCESS_TOKEN = process.env.SLACK_BOT_ACCESS_TOKEN;
 var API_AI_ACCESS_TOKEN = process.env.API_AI_ACCESS_TOKEN;
 var API_AI_DEV_TOKEN = process.env.API_AI_DEV_TOKEN;
 
+// MongoDB Mongoose Models
+var Models = require( '../models/models.js' );
+    var Users = Models.Users;
+    var Invite = Models.Invite;
+    var Task = Models.Task;
+    var Meeting = Models.Meeting;
+
 /**
  * Create and set up Slackbot RTM ( Real Time Messaging ) and its event listener
  * Create and set up WebClient for Slackbot
@@ -80,13 +87,6 @@ rtm.on( 'message', ( event ) => {
     });
 });
 
-// MongoDB Mongoose Models
-var Models = require( '../models/models.js' );
-    var Users = Models.Users;
-    var Invite = Models.Invite;
-    var Task = Models.Task;
-    var Meeting = Models.Meeting;
-
 // Routes
 router.get( '/auth', ( req, res ) => {
     if( !req.query.auth_id ) { throw new Error( 'auth_id not found (in query)' ); return; }
@@ -115,8 +115,8 @@ router.post( '/slack/action', ( req, res ) => {
     var confirmSelect = action.actions[0].value;
     var userId = action.user.id;
     if( !userStatus[ userId ] ) userStatus.userId = "";
-    console.log( "Original Message", action.original_message.attachments )
-    // console.log( confirmSelect );
+    // console.log( "Original Message", action.original_message.attachments )
+    console.log( req.body );
 });
 
 module.exports = router;
