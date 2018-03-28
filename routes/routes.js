@@ -122,7 +122,7 @@ rtm.on( 'message', ( event ) => {
                 return foundUser.save();
             })
             .catch( userSaveError => console.log( "User Save Error:", userSaveError ) );
-        } // End of Else Statement
+        }   // End of Else Statement
     }); // End of User.FindOne
 });
 
