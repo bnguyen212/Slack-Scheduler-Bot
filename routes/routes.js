@@ -42,15 +42,16 @@ rtm.on( 'message', ( event ) => {
         method: 'POST',
         headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
         body: {
-            "contexts": [
-                "talk"
-            ],
-            sessionId: "ai84625",
+            sessionId: "aixm84625",
             lang: 'en',
-            query: event.text
+            query: event.text,
+            event: {
+                name: "Get Ai Response" 
+            }
         }
     })
     .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
+    .then( response => response.json() )
     .then( response => {
         console.log( response );
         if( response.result.actionIncomplete ) {
