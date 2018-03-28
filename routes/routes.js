@@ -42,7 +42,7 @@ rtm.on( 'message', ( event ) => {
     if( event.subtype ) return;
     // Check if User exists on Database ( MongoDB ) --- If not, create a User
     var slackId = event.user;
-    User.findOrCreateOneBySlackId( { slackId: slackId } )
+    User.findOrCreateOneBySlackId( slackId )
     .catch( userFindError => console.log( "User Find Error:", userFindError ) )
     .then( foundUser => {
         // If it is a new User, or if the User's token doesn't exist or has expired, ask for Google Permissions again
