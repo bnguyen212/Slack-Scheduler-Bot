@@ -38,7 +38,7 @@ var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 // Handle Slack Bot messages - delivering and receiving.
 // If the User has not given permissions for Google Calendar, prompt the User to do so.
 rtm.on( 'message', ( event ) => {
-    if( event.subtype === "bot_message" ) return;
+    if( event.subtype ) return;
     // Check if User exists on Database ( MongoDB ) --- If not, create a User
     var slackId = event.user;
     User.findOne( { slackId: slackId } ).exec()
