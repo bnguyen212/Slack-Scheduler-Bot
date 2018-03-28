@@ -10,7 +10,31 @@ if ( !process.env.MONGODB_URI ) {
 }
 mongoose.connect( process.env.MONGODB_URI );
 
-var TaskSchema = Schema({
+var UserSchema = Schema({
+  calenderAcc: {
+    type: Object
+  },
+  defaultLength: {
+    type: Number,
+  },
+  slackId: {
+    type: String,
+  },
+  slackUsername: {
+    type: String,
+  },
+  slackEmail: {
+    type: String,
+  },
+  slackDmIds: {
+    type: Array,
+  },
+  googleTokens: {
+    type: Array
+  }
+});
+
+var ReminderSchema = Schema({
   subject: {
     type: String,
     required: true
@@ -66,27 +90,6 @@ var MeetingSchema = Schema({
   },
 });
 
-var UserSchema = Schema({
-  calenderAcc: {
-    type: Object
-  },
-  defaultLength: {
-    type: Number,
-  },
-  slackId: {
-    type: String,
-  },
-  slackUsername: {
-    type: String,
-  },
-  slackEmail: {
-    type: String,
-  },
-  slackDmIds: {
-    type: Array,
-  },
-});
-
 var InviteSchema = Schema({
   eventId: {
     type: String,
@@ -105,13 +108,13 @@ var InviteSchema = Schema({
 });
 
 
-var Task = mongoose.model( 'Task', TaskSchema );
+var Reminder = mongoose.model( 'Reminder', ReminderSchema );
 var Meeting = mongoose.model( 'Meeting', MeetingSchema );
 var User = mongoose.model( 'User', UserSchema );
 var Invite = mongoose.model( 'Invite', InviteSchema );
 
 module.exports = {
-  Task: Task,
+  Reminder: Reminder,
   Meeting: Meeting,
   User: User,
   Invite: Invite

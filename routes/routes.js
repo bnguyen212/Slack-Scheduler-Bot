@@ -2,30 +2,23 @@
 var express = require( 'express' );
 var router = express.Router();
 var fetch = require( 'node-fetch' );
+var googleAuth = require( './googleAuth.js' );
 
-var google = require( 'googleapis' );
-var googleAuth = require( 'google-auth-library' );
 var SlackClient = require( '@slack/client' );
     var RTMClient = SlackClient.RTMClient;
     var WebClient = SlackClient.WebClient;
-
-if( !process.env.GOOGLE_CLIENT_ID ) { throw new Error( 'process.env.GOOGLE_CLIENT_ID not found' ); process.exit(1); return; }
-if( !process.env.GOOGLE_CLIENT_SECRET ) { throw new Error( 'process.env.GOOGLE_CLIENT_SECRET not found' ); process.exit(1); return; }
-if( !process.env.DOMAIN ) { throw new Error( 'process.env.DOMAIN not found' ); process.exit(1); return; }
 
 if( !process.env.SLACK_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_ACCESS_TOKEN not found' ); process.exit(1); return; }
 if( !process.env.SLACK_BOT_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_BOT_ACCESS_TOKEN not found' ); process.exit(1); return; }
 if( !process.env.API_AI_ACCESS_TOKEN ) { throw new Error( 'process.env.API_AI_ACCESS_TOKEN not found' ); process.exit(1); return; }
 if( !process.env.API_AI_DEV_TOKEN ) { throw new Error( 'process.env.API_AI_DEV_TOKEN not found' ); process.exit(1); return; }
-
-var GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-var GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-var DOMAIN = process.env.DOMAIN;
+if( !process.env.DOMAIN ) { throw new Error( 'process.env.DOMAIN not found' ); process.exit(1); return; }
 
 var SLACK_ACCESS_TOKEN = process.env.SLACK_ACCESS_TOKEN;
 var SLACK_BOT_ACCESS_TOKEN = process.env.SLACK_BOT_ACCESS_TOKEN;
 var API_AI_ACCESS_TOKEN = process.env.API_AI_ACCESS_TOKEN;
 var API_AI_DEV_TOKEN = process.env.API_AI_DEV_TOKEN;
+var DOMAIN = process.env.DOMAIN;
 
 // MongoDB Mongoose Models
 var Models = require( '../models/models.js' );
@@ -48,25 +41,36 @@ var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 /**
  *  userStatus: {
       userId: {
-        intent: String,   // meeting:add, reminder:add
+        intent: String,   // meeting:add, reminderme:add
         subject: String,
         date: Date,
-        // datePeriod: [ start Date, end Date ] --- Unused
+        datePeriod: [ start Date, end Date ] --- Unused
       }
     }
  */
 var userStatus = {};
 
+// Handle Slack Bot messages - delivering and receiving
+// If the User has not given permissions for Google Calendar, prompt the User to
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
-    // Give Message to Api AI
-    if( userStatus[ event.user ] ) {
+    // Check if User exists on Database ( MongoDB ) --- If not, ask them to allow Google Calendar Permissions
+    var userId = event.user;
+    
+    // web.chat.postMessage({
+        // "channel": event.channel,
+        // "text": "Google Log In: " + DOMAIN + "/auth?auth_id="
+    // });
+    // return;
+    // If the User has a pending request, ask them to Confirm or Cancel
+    if( userStatus[ userId ] ) {
         web.chat.postMessage({
             "channel": event.channel,
             "text": "Looks like you have a response to answer, please Confirm or Cancel."
         });
         return;
     }
+    // Else, Save the User's Request, and Ask them to Confirm or Cancel
     fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
         method: 'POST',
         headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
@@ -87,11 +91,11 @@ rtm.on( 'message', ( event ) => {
             return;
         }
         var intent = response.result.metadata.intentName;
-        var subject = response.result.parameters.subject.join( ' ' );
+        var subject = response.result.parameters.subject ? response.result.parameters.subject.join( ' ' ) : null;
         var time = response.result.parameters.time;
         var date = response.result.parameters.date;
         var datePeriod = response.result.parameters[ "date-period" ];
-        userStatus[ event.user ] = { intent, subject, time, date, datePeriod };
+        userStatus[ userId ] = { intent, subject, time, date, datePeriod };
         
         web.chat.postMessage({
             "channel": event.channel,
@@ -113,28 +117,24 @@ rtm.on( 'message', ( event ) => {
 router.post( '/', ( req, res ) => { res.send("Connected to Slack Scheduler Bot") });
 
 router.get( '/auth', ( req, res ) => {
-    if( !req.query.auth_id ) { throw new Error( 'auth_id not found (in query)' ); return; }
-    var auth = new googleAuth();
-    var oauth2Client = new auth.OAuth2( GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DOMAIN + '/connect/callback' );
-    var url = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        prompt: 'consent',
-        scope: [
-          'https://www.googleapis.com/auth/userinfo.profile',
-          'https://www.googleapis.com/auth/calendar'
-        ],
-        state: encodeURIComponent( JSON.stringify({
-          auth_id: req.query.auth_id
-        }))
-    });
+    // Google Calendar Authentication - Prompt the User if they have not given permission
+    // if( !req.query.auth_id ) { throw new Error( 'auth_id not found (in query)' ); return; }
+    var url = googleAuth.generateAuthUrl( req.query.auth_id );
     res.redirect( url )
 });
 
 router.get( '/connect/callback', ( req, res ) => {
-    if( !req.query.code ) {  }
+    // Callback after a User has logged in through Google
+    if( !req.query.code ) { return res.send( "No Code/Token found, try again." ); }
+    googleAuth.getToken( req.query.code )
+    .catch( codeGetError => res.status(500).send( "Google OAuth2 Code Get Error:", codeGetError ) )
+    .then( tokens => {
+        res.json( tokens );
+    });
 });
 
 router.post( '/slack/action', ( req, res ) => {
+    // Handle event when User clicks on "Cancel" or "Confirm"
     var action = JSON.parse( req.body.payload );
     var confirmSelect = action.actions[0].value;
     var userId = String(action.user.id);
@@ -152,7 +152,7 @@ router.post( '/slack/action', ( req, res ) => {
     if( confirmSelect === "yes" ) { responseString += "Confirmed "; }
     else if( confirmSelect === "no" ) { responseString += "Cancelled "; }
     responseString += intent;
-    if( subject ) { responseString += " to " + subject; }
+    if( subject ) { responseString += ' to \"' + subject + '"'; }
     if( time ) { responseString += " at " + time; }
     if( date ) responseString += " on " + date;
     responseString += '.'
