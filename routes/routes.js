@@ -35,30 +35,18 @@ var rtm = new RTMClient( SLACK_BOT_ACCESS_TOKEN );
 rtm.start();
 var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 
-// Handle Slack Bot messages - delivering and receiving.
+// Handle Slack-Bot messages - delivering and receiving.
 // If the User has not given permissions for Google Calendar, prompt the User to do so.
 rtm.on( 'message', ( event ) => {
+    // The Slack-Bot only responds to regular user messages, and not to message edits, deletes, server messages etc.
     if( event.subtype ) return;
     // Check if User exists on Database ( MongoDB ) --- If not, create a User
     var slackId = event.user;
-    User.findOne( { slackId: slackId } ).exec()
+    User.findOrCreateOneBySlackId( { slackId: slackId } )
     .catch( userFindError => console.log( "User Find Error:", userFindError ) )
     .then( foundUser => {
-        // If User is not found, create a new User and ask for Google Permissions
-        if( !foundUser ) {
-            console.log( "RTM Msg: New User" );
-            var newUser = new User({ slackId: slackId });
-            newUser.save()
-            .catch( userSaveError => console.log( "User Save Error:", userSaveError ) )
-            .then( savedUser => {
-                web.chat.postMessage({
-                    "channel": event.channel,
-                    "text": "Google Log In: " + DOMAIN + "auth?auth_id=" + savedUser._id
-                });
-            });
-        }
-        // If the User's token doesn't exist or has expired, ask for Google Permissions again
-        else if( !foundUser.googleTokens || foundUser.googleTokens.expiry_date < Date.now() ) {
+        // If it is a new User, or if the User's token doesn't exist or has expired, ask for Google Permissions again
+        if( !foundUser.googleTokens || foundUser.googleTokens.expiry_date < Date.now() ) {
             console.log( "RTM Msg: User's Google Authentication token expired" );
             web.chat.postMessage({
                 "channel": event.channel,
@@ -89,7 +77,7 @@ rtm.on( 'message', ( event ) => {
             .then( response => response.json() )
             .then( response => {
                 // If the User's request is incomplete, or the Slack-Bot asks for more information.
-                // If the User says "Hello", the Slack-Bot does the same.
+                // If the User gives a greeting, the Slack-Bot does the same.
                 if( response.result.actionIncomplete || response.result.action === "welcome" || response.result.metadata.intentName === "welcome" ) {
                     web.chat.postMessage({
                         "channel": event.channel,
@@ -98,11 +86,6 @@ rtm.on( 'message', ( event ) => {
                     return;
                 }
                 // Else, the User's request is complete, and the Slack-Bot asks the User to Cancel or Confirm it
-                var intent = response.result.metadata.intentName;
-                var subject = response.result.parameters.subject ? response.result.parameters.subject.join( ' ' ) : null;
-                var time = response.result.parameters.time;
-                var date = response.result.parameters.date;
-                var datePeriod = response.result.parameters[ "date-period" ];
                 
                 web.chat.postMessage({
                     "channel": event.channel,
@@ -118,7 +101,14 @@ rtm.on( 'message', ( event ) => {
                     }]
                 });
                 
-                foundUser.status = { intent, subject, time, date, datePeriod };
+                var newStatus = {};
+                newStatus.intent = response.result.metadata.intentName;
+                newStatus.subject = ( response.result.parameters.subject ? response.result.parameters.subject.join( ' ' ) : null );
+                newStatus.time = response.result.parameters.time;
+                newStatus.date = response.result.parameters.date;
+                newStatus.datePeriod = response.result.parameters[ "date-period" ];
+                newStatus.invitees = response.result.parameters.invitees;     // Invitees for Meetings
+                foundUser.status = newStatus;
                 return foundUser.save();
             })
             .catch( userSaveError => console.log( "User Save Error:", userSaveError ) );

@@ -11,7 +11,7 @@ var GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 var GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 var DOMAIN = process.env.DOMAIN;
 
-var oauth2Client = new OAuth2( GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DOMAIN + '/connect/callback' );
+var oauth2Client = new OAuth2( GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DOMAIN + 'connect/callback' );
 
 module.exports = {
     generateAuthUrl( auth_id ) {
@@ -37,7 +37,7 @@ module.exports = {
             });
         });
     },
-    createCalendarEvent( tokens, title, startDate, endDate ) {
+    createReminder( tokens, title, date ) {
         oauth2Client.setCredentials( tokens );
         return new Promise( function( resolve, reject ) {
             calendar.events.insert({
@@ -45,13 +45,19 @@ module.exports = {
                 calendarId: 'primary',
                 resource: {
                     summary: title,
-                    start: { date: startDate, timeZone: "America/Los_Angeles" },
-                    end: { date: ( endDate ? endDate : startDate ), timeZone: "America/Los_Angeles" }
+                    start: { date: date, timeZone: "America/Los_Angeles" },
+                    end: { date: date, timeZone: "America/Los_Angeles" }
                 }
             }, function( calendarInsertError, calendarInsertResponse ) {
                 if( calendarInsertError ) { reject( calendarInsertError ); return }
                 resolve( calendarInsertResponse );
             });
+        });
+    },
+    createMeeting( tokens, title, date ) {
+        oauth2Client.setCredentials( tokens );
+        return new Promise( function( resolve, reject ) {
+            
         });
     }
 }
