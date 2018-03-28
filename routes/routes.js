@@ -22,7 +22,7 @@ var DOMAIN = process.env.DOMAIN;
 
 // MongoDB Mongoose Models
 var Models = require( '../models/models.js' );
-    var Users = Models.Users;
+    var User = Models.User;
     var Invite = Models.Invite;
     var Task = Models.Task;
     var Meeting = Models.Meeting;
@@ -35,81 +35,91 @@ var rtm = new RTMClient( SLACK_BOT_ACCESS_TOKEN );
 rtm.start();
 var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
 
-// userStatus is an Object to see if a User has a pending request - If so, that User must Confirm or Cancel that request before making a new request
-  // The keys are User Slack Id's
-  // The values are either null, or an object that represents a requested action
-/**
- *  userStatus: {
-      userId: {
-        intent: String,   // meeting:add, reminderme:add
-        subject: String,
-        date: Date,
-        datePeriod: [ start Date, end Date ] --- Unused
-      }
-    }
- */
-var userStatus = {};
-
-// Handle Slack Bot messages - delivering and receiving
-// If the User has not given permissions for Google Calendar, prompt the User to
+// Handle Slack Bot messages - delivering and receiving.
+// If the User has not given permissions for Google Calendar, prompt the User to do so.
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
-    // Check if User exists on Database ( MongoDB ) --- If not, ask them to allow Google Calendar Permissions
-    var userId = event.user;
-    
-    // web.chat.postMessage({
-        // "channel": event.channel,
-        // "text": "Google Log In: " + DOMAIN + "/auth?auth_id="
-    // });
-    // return;
-    // If the User has a pending request, ask them to Confirm or Cancel
-    if( userStatus[ userId ] ) {
-        web.chat.postMessage({
-            "channel": event.channel,
-            "text": "Looks like you have a response to answer, please Confirm or Cancel."
-        });
-        return;
-    }
-    // Else, Save the User's Request, and Ask them to Confirm or Cancel
-    fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
-        method: 'POST',
-        headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
-        body: JSON.stringify({
-            sessionId: "aixm84625",
-            lang: 'en',
-            query: event.text
-        })
-    })
-    .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
-    .then( response => response.json() )
-    .then( response => {
-        if( response.result.actionIncomplete || response.result.action === "input.welcome" || response.result.metadata.intentName === "Default Welcome Intent" ) {
+    // Check if User exists on Database ( MongoDB ) --- If not, create a User
+    var slackId = event.user;
+    User.findOne( { slackId: slackId } ).exec()
+    .catch( userFindError => console.log( "User Find Error:", userFindError ) )
+    .then( foundUser => {
+        // If User is not found, create a new User and ask for Google Permissions
+        if( !foundUser ) {
+            console.log( "RTM Msg: New User" );
+            var newUser = new User({ slackId: slackId });
+            newUser.save()
+            .catch( userSaveError => console.log( "User Save Error:", userSaveError ) )
+            .then( savedUser => {
+                web.chat.postMessage({
+                    "channel": event.channel,
+                    "text": "Google Log In: " + DOMAIN + "/auth?auth_id=" + savedUser._id
+                });
+            });
+        }
+        // If the User's token doesn't exist or has expired, ask for Google Permissions again
+        else if( !foundUser.googleTokens || foundUser.googleTokens.expiry_date < Date.now() ) {
+            console.log( "RTM Msg: User's Google Authentication token expired" );
             web.chat.postMessage({
                 "channel": event.channel,
-                "text": response.result.fulfillment.speech
+                "text": "Google Log In: " + DOMAIN + "/auth?auth_id=" + foundUser._id
             });
-            return;
         }
-        var intent = response.result.metadata.intentName;
-        var subject = response.result.parameters.subject ? response.result.parameters.subject.join( ' ' ) : null;
-        var time = response.result.parameters.time;
-        var date = response.result.parameters.date;
-        var datePeriod = response.result.parameters[ "date-period" ];
-        userStatus[ userId ] = { intent, subject, time, date, datePeriod };
-        
-        web.chat.postMessage({
-            "channel": event.channel,
-            // "text": event.text,
-            "attachments": [{
-                "text": response.result.fulfillment.speech,
-                "fallback": "Unable to confirm a Reminder or Meeting",
-                "callback_id": "confirm",
-                "actions": [
-                    { "type": "button", "name": "select", "value": "yes", "text": "Confirm" },
-                    { "type": "button", "name": "select", "value": "no", "text": "Cancel", "style": "danger" }
-                ]
-            }]
-        });
+        // If the Slack Bot has a pending request from the User, ask the User to Cancel or Confirm it
+        else if( foundUser.status ) {
+            console.log( "RTM Msg: User has a Pending request" );
+            web.chat.postMessage({
+                "channel": event.channel,
+                "text": "Looks like you have a response to answer, please Confirm or Cancel."
+            });
+        }
+        // Else, give the User's request to the Slack Bot, and give the Slack Bot's response back to the User
+        else {
+            console.log( "RTM Msg: User gives a new request to Slack-Bot" );
+            fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
+                method: 'POST',
+                headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sessionId: "aixm84625",
+                    lang: 'en',
+                    query: event.text
+                })
+            })
+            .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
+            .then( response => response.json() )
+            .then( response => {
+                // If the User's request is incomplete, or the Slack-Bot asks for more information.
+                // If the User says "Hello", the Slack-Bot does the same.
+                if( response.result.actionIncomplete || response.result.action === "input.welcome" || response.result.metadata.intentName === "Default Welcome Intent" ) {
+                    web.chat.postMessage({
+                        "channel": event.channel,
+                        "text": response.result.fulfillment.speech
+                    });
+                    return;
+                }
+                // Else, the User's request is complete, and the Slack-Bot asks the User to Cancel or Confirm it
+                var intent = response.result.metadata.intentName;
+                var subject = response.result.parameters.subject ? response.result.parameters.subject.join( ' ' ) : null;
+                var time = response.result.parameters.time;
+                var date = response.result.parameters.date;
+                var datePeriod = response.result.parameters[ "date-period" ];
+                foundUser.status = { intent, subject, time, date, datePeriod };
+                
+                web.chat.postMessage({
+                    "channel": event.channel,
+                    // "text": event.text,
+                    "attachments": [{
+                        "text": response.result.fulfillment.speech,
+                        "fallback": "Unable to confirm a Reminder or Meeting",
+                        "callback_id": "confirm",
+                        "actions": [
+                            { "type": "button", "name": "select", "value": "yes", "text": "Confirm" },
+                            { "type": "button", "name": "select", "value": "no", "text": "Cancel", "style": "danger" }
+                        ]
+                    }]
+                });
+            });
+        }
     });
 });
 
@@ -120,7 +130,7 @@ router.get( '/auth', ( req, res ) => {
     // Google Calendar Authentication - Prompt the User if they have not given permission
     // if( !req.query.auth_id ) { throw new Error( 'auth_id not found (in query)' ); return; }
     var url = googleAuth.generateAuthUrl( req.query.auth_id );
-    res.redirect( url )
+    res.redirect( url );
 });
 
 router.get( '/connect/callback', ( req, res ) => {
@@ -128,8 +138,16 @@ router.get( '/connect/callback', ( req, res ) => {
     if( !req.query.code ) { return res.send( "No Code/Token found, try again." ); }
     googleAuth.getToken( req.query.code )
     .catch( codeGetError => res.status(500).send( "Google OAuth2 Code Get Error:", codeGetError ) )
+    // Save the User's Google Tokens in the Mongo Database
     .then( tokens => {
-        res.json( tokens );
+        var state = JSON.parse( decodeURIComponent( req.query.state ) );
+        var userId = state.auth_id;
+        return User.findByIdAndUpdate( userId, { googleTokens: tokens } ).exec();
+    })
+    .catch( userUpdateError => res.status(500).send( "User Update Error: " + userUpdateError ) )
+    .then( updatedUser => {
+        if( !updatedUser ) return res.status(500).send( "User not Found, invalid userId" );
+        res.send( "Logged in through Google." );
     });
 });
 
@@ -137,27 +155,37 @@ router.post( '/slack/action', ( req, res ) => {
     // Handle event when User clicks on "Cancel" or "Confirm"
     var action = JSON.parse( req.body.payload );
     var confirmSelect = action.actions[0].value;
-    var userId = String(action.user.id);
+    var slackId = String(action.user.id);
     
-    var intent;
-    switch( userStatus[ userId ].intent ) {
-        case "reminderme:add": intent = "Reminder"; break;
-        case "meeting:add": intent = "Meeting"; break;
-    }
-    var time = userStatus[ userId ].time;
-    var date = userStatus[ userId ].date;
-    var subject = userStatus[ userId ].subject;
-    var responseString = "";
-    
-    if( confirmSelect === "yes" ) { responseString += "Confirmed "; }
-    else if( confirmSelect === "no" ) { responseString += "Cancelled "; }
-    responseString += intent;
-    if( subject ) { responseString += ' to \"' + subject + '"'; }
-    if( time ) { responseString += " at " + time; }
-    if( date ) responseString += " on " + date;
-    responseString += '.'
-    userStatus[ userId ] = null;
-    res.send( responseString );
+    User.findOne( { slackId: slackId } ).exec()
+    .catch( userFindError => res.status(500).send( "User Find Error: " + userFindError ) )
+    .then( foundUser => {
+        if( !foundUser ) return res.status(500).send( "User not Found, invalid userId" );
+        // Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
+        var intent;
+        switch( foundUser.status.intent ) {
+            case "reminderme:add": intent = "Reminder"; break;
+            case "meeting:add": intent = "Meeting"; break;
+        }
+        var time = foundUser.status.time;
+        var date = foundUser.status.date;
+        var subject = foundUser.status.subject;
+        var responseString = "";
+        
+        if( confirmSelect === "yes" ) { responseString += "Confirmed "; }
+        else if( confirmSelect === "no" ) { responseString += "Cancelled "; }
+        responseString += intent;
+        if( subject ) { responseString += ' to \"' + subject + '"'; }
+        if( time ) { responseString += " at " + time; }
+        if( date ) responseString += " on " + date;
+        responseString += '.';
+        foundUser.status = null;
+        return foundUser.save();
+    })
+    .catch( userSaveError => res.status(500).send( "User Save Error: " + userSaveError ) )
+    .then( savedUser => {
+        res.send( responseString );
+    })
 });
 
 module.exports = router;

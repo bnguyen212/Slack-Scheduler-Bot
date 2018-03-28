@@ -1,6 +1,7 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var ObjectId = Schema.ObjectId;
+var Mixed = Schema.Types.Mixed;
 
 if ( !process.env.MONGODB_URI ) {
   console.log( 'Error: MONGODB_URI is not set. Did you run source env.sh ?' );
@@ -11,11 +12,22 @@ if ( !process.env.MONGODB_URI ) {
 mongoose.connect( process.env.MONGODB_URI );
 
 var UserSchema = Schema({
-  calenderAcc: {
-    type: Object
+  /**
+    * googleTokens: {
+        access_token: String,
+        id_token: String,
+        refresh_token: String,
+        token_type: String,     // default: "Bearer"
+        expiry_date: Date
+      }
+  */
+  googleTokens: {
+    type: Mixed
   },
-  defaultLength: {
+  // Default meeting length: 30 minutes
+  defaultMeetingLength: {
     type: Number,
+    default: 30
   },
   slackId: {
     type: String,
@@ -29,8 +41,19 @@ var UserSchema = Schema({
   slackDmIds: {
     type: Array,
   },
-  googleTokens: {
-    type: Array
+  // User Status - whether the Slack Bot has given the User a request or not
+  // User.status is either an Object that represents the request, or null
+  /**
+    * status: {
+        intent: String,   // meeting:add, reminderme:add
+        subject: String,
+        time: String      // HH:MM:SS format
+        date: Date,
+        datePeriod: [ start Date, end Date ] --- Unused
+      }
+  */
+  status: {
+    type: Mixed
   }
 });
 
