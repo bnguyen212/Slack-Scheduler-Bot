@@ -51,12 +51,11 @@ var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
         intent: String,   // meeting:add, reminder:add
         subject: String,
         date: Date,
-        // date-period: [ start Date, end Date ] --- Unused
+        // datePeriod: [ start Date, end Date ] --- Unused
       }
     }
  */
 var userStatus = {};
-
 
 rtm.on( 'message', ( event ) => {
     if( event.subtype === "bot_message" ) return;
@@ -111,6 +110,8 @@ rtm.on( 'message', ( event ) => {
 });
 
 // Routes
+router.post( '/', ( req, res ) => { res.send("Connected to Slack Scheduler Bot") });
+
 router.get( '/auth', ( req, res ) => {
     if( !req.query.auth_id ) { throw new Error( 'auth_id not found (in query)' ); return; }
     var auth = new googleAuth();
@@ -140,8 +141,8 @@ router.post( '/slack/action', ( req, res ) => {
     
     var intent;
     switch( userStatus[ userId ].intent ) {
-        case "reminder:add": { intent = "Reminder"; break; }
-        case "meeting:add": { intent = "Meeting"; break; }
+        case "reminder:add": intent = "Reminder"; break;
+        case "meeting:add": intent = "Meeting"; break;
     }
     var time = userStatus[ userId ].time;
     var date = userStatus[ userId ].date;
