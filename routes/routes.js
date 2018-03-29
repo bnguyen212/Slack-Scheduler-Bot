@@ -189,7 +189,7 @@ router.post( '/slack/action', ( req, res ) => {
             var date = foundUser.status.date;
             var subject = foundUser.status.subject;
             var invitees = foundUser.status.invitees;
-            
+            // Generate Response String, that has request information
             responseString += ":heavy_check_mark: Confirmed ";
             responseString += intent;
             if( subject ) { responseString += ' to "' + subject + '"'; }
@@ -207,15 +207,18 @@ router.post( '/slack/action', ( req, res ) => {
             if( startTime ) { responseString += " at " + startTime; }
             if( date ) responseString += " on " + date;
             responseString += '.';
-            
-            if( confirmSelect === "yes" ) {
-                switch( intent ) {
-                    case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
-                    case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
-                }
+            // Add a Google Calendar Event, based on the User's request
+            switch( intent ) {
+                case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
+                case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
             }
         })
-        .then( () => currentUser.save() )
+        .then( () => {
+            // Clear user's pending request
+            currentUser.status = null;
+            currentUser.save() 
+        })
+        // Send the User a message based on the Request, and how it was handled
         .then( () => res.send( responseString ) )
         .catch( error => {
             console.log( "Error Confirming Request: " + error );
