@@ -81,6 +81,7 @@ rtm.on( 'message', ( event ) => {
             fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
                 headers: { "content-type": "application/x-www-form-urlencoded" }
             })
+            .then( response => response.json() )
             .then( userList => {
                 console.log( userList );
                 // Save Slack Id: Username pair
