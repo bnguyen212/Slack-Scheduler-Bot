@@ -151,10 +151,6 @@ router.get( '/connect/callback', ( req, res ) => {
     .catch( userUpdateError => res.status(500).send( "User Update Error: " + userUpdateError ) )
     .then( updatedUser => {
         if( !updatedUser ) return res.status(500).send( "User not Found, invalid userId" );
-        web.chat.postMessage({
-            "channel": event.channel,
-            "text": 'Logged in through Google. You can make requests to set "Reminders" or "Meetings".'
-        });
         res.send( "Logged in through Google. You can now make requests to SchedulerBot." );
     });
 });
