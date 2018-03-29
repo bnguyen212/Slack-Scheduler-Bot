@@ -76,16 +76,32 @@ rtm.on( 'message', ( event ) => {
         // Else, give the User's request to the Slack Bot, and give the Slack Bot's response back to the User
         else {
             console.log( "RTM Msg: User gives a new request to Slack-Bot" );
-            fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
-                method: 'POST',
-                headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    sessionId: "aixm84625",
-                    lang: 'en',
-                    query: event.text
-                })
+            // Get a List of all Users in the Slack Workspace, to convert Slack id codes into Slack usernames
+            var userNameObj = {};   // Object to save Slack User Id's and Usernames     // The keys are Id's    // The values are the Usernames
+            fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
+                headers: { "content-type": "application/x-www-form-urlencoded" }
             })
-            .catch( aiError => { console.log( "Api AI Error: " + aiError ); } )
+            .then( userList => {
+                // Save Slack Id: Username pair
+                for( var i = 0; i < userList.members.length; i++ ) {
+                    userNameObj[ userList.members[i].id ] = userList.members[i].name;
+                }
+                // In the User Message, replace Slack Id's with Usernames
+                for( var slackId in userNameObj ) {
+                    event.text = event.text.replace( "<@" + slackId + ">", userNameObj[ slackId ] )
+                }
+            })
+            .then( () => {
+                return fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
+                    method: 'POST',
+                    headers: { "Authorization": "Bearer " + API_AI_ACCESS_TOKEN, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        sessionId: "aixm84625",
+                        lang: 'en',
+                        query: event.text
+                    })
+                });
+            })
             .then( response => response.json() )
             .then( response => {
                 // If the User's request is incomplete, or the Slack-Bot asks for more information.
@@ -122,7 +138,7 @@ rtm.on( 'message', ( event ) => {
                 foundUser.status = newStatus;
                 return foundUser.save();
             })
-            .catch( userSaveError => console.log( "User Save Error:", userSaveError ) );
+            .catch( error => console.log( "Error forwaring User message to Api.AI:", error ) );
         }   // End of Else Statement, which forwarded a User's message to Slack-Bot
     }); // End of User.FindOne
 });
@@ -231,8 +247,8 @@ router.post( '/slack/action', ( req, res ) => {
                     return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
             }
         })
+        // Clear user's pending request
         .then( () => {
-            // Clear user's pending request
             currentUser.status = null;
             return currentUser.save();
         })
@@ -242,7 +258,7 @@ router.post( '/slack/action', ( req, res ) => {
             console.log( "Error Confirming Request: " + error );
             res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
         });
-    }
+    } // End of if statement( confirmSelect === "yes" )
 });
 
 module.exports = router;

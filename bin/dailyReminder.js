@@ -10,10 +10,7 @@
 var SlackClient = require( '@slack/client' );
     var WebClient = SlackClient.WebClient;
 
-if( !process.env.SLACK_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_ACCESS_TOKEN not found' ); process.exit(1); return; }
 if( !process.env.SLACK_BOT_ACCESS_TOKEN ) { throw new Error( 'process.env.SLACK_BOT_ACCESS_TOKEN not found' ); process.exit(1); return; }
-
-var SLACK_ACCESS_TOKEN = process.env.SLACK_ACCESS_TOKEN;
 var SLACK_BOT_ACCESS_TOKEN = process.env.SLACK_BOT_ACCESS_TOKEN;
 
 var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
