@@ -197,6 +197,7 @@ router.post( '/slack/action', ( req, res ) => {
         if( time ) { responseString += " at " + time; }
         if( date ) responseString += " on " + date;
         responseString += '.';
+        res.send( responseString );
         
         if( confirmSelect === "yes" ) {
             switch( intent ) {
@@ -209,7 +210,6 @@ router.post( '/slack/action', ( req, res ) => {
     .then( calendarResponse => {
         currentUser.status = null;
         currentUser.save();
-        res.send( responseString );
     });
 });
 
