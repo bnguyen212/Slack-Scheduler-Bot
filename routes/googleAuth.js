@@ -56,8 +56,8 @@ module.exports = {
     },
     createMeeting( tokens, title, date, invitees, startTime, endTime ) {
         oauth2Client.setCredentials( tokens );
-        var startDateTime = new Date( Date.parse( date + 'T' + startTime ) );
-        var endDateTime = new Date( Date.parse( date + 'T' + endTime ) );
+        var startDateTime = new Date( date + 'T' + startTime );
+        var endDateTime = new Date( date + 'T' + endTime );
         return new Promise( function( resolve, reject ) {
             calendar.events.insert({
                 auth: oauth2Client,

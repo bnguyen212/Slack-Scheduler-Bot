@@ -169,7 +169,7 @@ router.post( '/slack/action', ( req, res ) => {
         .then( () => res.send( ":heavy_multiplication_x: Cancelled request" ) )
         .catch( error => {
             console.log( "Error Cancelling Request: " + error );
-            res.status(500).send( ":heavy_multiplication_x: Error Cancelling Request: " + error );
+            res.send( ":heavy_multiplication_x: Error Cancelling Request: " + error );
         });
     }
     else if( confirmSelect === "yes" ) {
@@ -219,7 +219,7 @@ router.post( '/slack/action', ( req, res ) => {
         .then( () => res.send( responseString ) )
         .catch( error => {
             console.log( "Error Confirming Request: " + error );
-            res.status(500).send( ":heavy_multiplication_x: Error Confirming Request: " + error );
+            res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
         });
     }
 });
