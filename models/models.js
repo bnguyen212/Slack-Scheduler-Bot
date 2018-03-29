@@ -70,9 +70,8 @@ var ReminderSchema = Schema({
   eventId: {
     type: String
   },
-  requesterId: {
-    type: ObjectId,
-    ref: 'User'
+  slackId: {
+    type: String
   },
 });
 

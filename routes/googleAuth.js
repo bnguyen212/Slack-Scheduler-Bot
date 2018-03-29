@@ -54,10 +54,8 @@ module.exports = {
             });
         });
     },
-    createMeeting( tokens, title, date, invitees, startTime, endTime ) {
+    createMeeting( tokens, title, invitees, startDateTime, endDateTime ) {
         oauth2Client.setCredentials( tokens );
-        var startDateTime = new Date( date + 'T' + startTime );
-        var endDateTime = new Date( date + 'T' + endTime );
         return new Promise( function( resolve, reject ) {
             calendar.events.insert({
                 auth: oauth2Client,

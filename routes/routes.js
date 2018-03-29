@@ -165,7 +165,6 @@ router.post( '/slack/action', ( req, res ) => {
     
     if( confirmSelect === "no" ) {
         User.findOneAndUpdate( { slackId: slackId }, { status: null } ).exec()
-        .catch( userUpdateError => res.status(500).send( "User Find and Update Error: " + userUpdateError ) )
         .then( () => res.send( ":heavy_multiplication_x: Cancelled request" ) )
         .catch( error => {
             console.log( "Error Cancelling Request: " + error );
@@ -175,7 +174,6 @@ router.post( '/slack/action', ( req, res ) => {
     else if( confirmSelect === "yes" ) {
         // If the User Confirmed the request, Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
         User.findOne( { slackId: slackId } ).exec()
-        .catch( userFindError => res.status(500).send( "User Find Error: " + userFindError ) )
         .then( foundUser => {
             if( !foundUser ) return res.status(500).send( "User not Found, invalid userId" );
             currentUser = foundUser;
@@ -185,7 +183,7 @@ router.post( '/slack/action', ( req, res ) => {
                 case "meeting:add": intent = "Meeting"; break;
             }
             var startTime = foundUser.status.time;
-            var endTime = ( foundUser.status.endTime ? foundUser.status.endTime : foundUser.status.time + foundUser.defaultMeetingLength );
+            var endTime = foundUser.status.endTime;
             var date = foundUser.status.date;
             var subject = foundUser.status.subject;
             var invitees = foundUser.status.invitees;
@@ -210,13 +208,16 @@ router.post( '/slack/action', ( req, res ) => {
             // Add a Google Calendar Event, based on the User's request
             switch( intent ) {
                 case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
-                case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
+                case "Meeting":
+                    var startDateTime = new Date( date + 'T' + startTime );
+                    var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( Date.parse( startDateTime ) + 1000*60*foundUser.defaultMeetingLength ) );
+                    return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
             }
         })
         .then( () => {
             // Clear user's pending request
             currentUser.status = null;
-            currentUser.save() 
+            return currentUser.save();
         })
         // Send the User a message based on the Request, and how it was handled
         .then( () => res.send( responseString ) )
