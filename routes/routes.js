@@ -207,7 +207,7 @@ router.post( '/slack/action', ( req, res ) => {
         }
         else res.send( responseString );
     })
-    .catch( calendarError => res.status(500).send( "Calendar Event Error: " + calendarError ) );
+    .catch( calendarError => res.status(500).send( "Calendar Event Error: " + calendarError ) )
     .then( calendarResponse => {
         res.send( responseString );
     });
