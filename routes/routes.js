@@ -159,7 +159,8 @@ router.post( '/slack/action', ( req, res ) => {
     // Handle event when User clicks on "Cancel" or "Confirm"
     var payload = JSON.parse( req.body.payload );
     var confirmSelect = payload.actions[0].value;
-    var slackId = String(payload.user.id);
+    var slackId = String( payload.user.id );
+    var responseString = "";
     
     User.findOne( { slackId: slackId } ).exec()
     .catch( userFindError => res.status(500).send( "User Find Error: " + userFindError ) )
@@ -176,7 +177,6 @@ router.post( '/slack/action', ( req, res ) => {
         var date = foundUser.status.date;
         var subject = foundUser.status.subject;
         var invitees = foundUser.status.invitees;
-        var responseString = "";
         
         if( confirmSelect === "yes" ) { responseString += ":heavy_check_mark: Confirmed "; }
         else if( confirmSelect === "no" ) { responseString += ":heavy_multiplication_x: Cancelled "; }
@@ -196,19 +196,21 @@ router.post( '/slack/action', ( req, res ) => {
         if( time ) { responseString += " at " + time; }
         if( date ) responseString += " on " + date;
         responseString += '.';
-        res.send( responseString );
+        
         foundUser.status = null;
         foundUser.save();
-        
         if( confirmSelect === "yes" ) {
             switch( intent ) {
                 case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
                 case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
             }
         }
+        else res.send( responseString );
     })
     .catch( calendarError => res.status(500).send( "Calendar Event Error: " + calendarError ) );
-    // .then( calendarResponse => {} );
+    .then( calendarResponse => {
+        res.send( responseString );
+    });
 });
 
 module.exports = router;
