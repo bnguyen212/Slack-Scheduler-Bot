@@ -163,7 +163,15 @@ router.post( '/slack/action', ( req, res ) => {
     var responseString = "";
     var currentUser;
     
-    if( confirmSelect === "no" ) { res.send( ":heavy_multiplication_x: Cancelled request" ); }
+    if( confirmSelect === "no" ) {
+        User.findOneAndUpdate( { slackId: slackId }, { status: null } ).exec()
+        .catch( userUpdateError => res.status(500).send( "User Find and Update Error: " + userUpdateError ) )
+        .then( () => res.send( ":heavy_multiplication_x: Cancelled request" ) )
+        .catch( error => {
+            console.log( "Error Cancelling Request: " + error );
+            res.status(500).send( ":heavy_multiplication_x: Error Cancelling Request: " + error );
+        });
+    }
     else if( confirmSelect === "yes" ) {
         // If the User Confirmed the request, Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
         User.findOne( { slackId: slackId } ).exec()
