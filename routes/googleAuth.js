@@ -45,8 +45,8 @@ module.exports = {
                 calendarId: 'primary',
                 resource: {
                     summary: title,
-                    start: { date: date, timeZone: "America/Los_Angeles" },
-                    end: { date: date, timeZone: "America/Los_Angeles" }
+                    start: { date: date },
+                    end: { date: date }
                 }
             }, function( calendarError, calendarResponse ) {
                 if( calendarError ) { reject( calendarError ); return }
@@ -62,8 +62,8 @@ module.exports = {
                 calendarId: 'primary',
                 resource: {
                     summary: title,
-                    start: { dateTime: startDateTime, timeZone: "America/Los_Angeles" },
-                    end: { dateTime: endDateTime, timeZone: "America/Los_Angeles" }
+                    start: { dateTime: startDateTime },
+                    end: { dateTime: endDateTime }
                 }
             }, function( calendarError, calendarResponse ) {
                 if( calendarError ) { reject( calendarError ); return }

@@ -193,7 +193,7 @@ router.post( '/slack/action', ( req, res ) => {
             if( subject ) { responseString += ' to "' + subject + '"'; }
             if( invitees ) {
                 responseString += " with";
-                if( invitees.length === 0 ) responseString += invitees[0];
+                if( invitees.length === 1 ) responseString += invitees[0];
                 else {
                     for( var i = 0 ; i < invitees.length; i++ ) {
                         responseString += " " + invitees[i];
@@ -205,12 +205,30 @@ router.post( '/slack/action', ( req, res ) => {
             if( startTime ) { responseString += " at " + startTime; }
             if( date ) responseString += " on " + date;
             responseString += '.';
-            // Add a Google Calendar Event, based on the User's request
+            // Add a Google Calendar Event (Reminder or Meeting), based on the User's request
+                // Reminders are All-Day events in Google Calendar
+            // Save a Reminder or Meeting in the Database
             switch( intent ) {
-                case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
+                case "Reminder":
+                    var newReminder = new Reminder({
+                        subject: subject,
+                        date: new Date( date ),
+                        slackId: slackId
+                    });
+                    newReminder.save( saveError => { if( saveError ) console.log( "Reminder Save Error: " + saveError ); } );
+                    return googleAuth.createReminder( foundUser.googleTokens, subject, date );
                 case "Meeting":
                     var startDateTime = new Date( date + 'T' + startTime );
                     var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( Date.parse( startDateTime ) + 1000*60*foundUser.defaultMeetingLength ) );
+                    var newMeeting = Meeting({
+                        startDate: startDateTime,
+                        endDate: endDateTime,
+                        invitees: invitees,
+                        subject: subject,
+                        createdAt: Date.now(),
+                        requesterId: slackId
+                    });
+                    newMeeting.save( saveError => { if( saveError ) console.log( "Meeting Save Error: " + saveError ); } );
                     return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
             }
         })
