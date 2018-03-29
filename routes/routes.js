@@ -161,56 +161,59 @@ router.post( '/slack/action', ( req, res ) => {
     var confirmSelect = payload.actions[0].value;
     var slackId = String( payload.user.id );
     var responseString = "";
+    var currentUser;
     
-    User.findOne( { slackId: slackId } ).exec()
-    .catch( userFindError => res.status(500).send( "User Find Error: " + userFindError ) )
-    .then( foundUser => {
-        if( !foundUser ) return res.status(500).send( "User not Found, invalid userId" );
-        // Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
-        currentUser = foundUser;
-        var intent;
-        switch( foundUser.status.intent ) {
-            case "reminderme:add": intent = "Reminder"; break;
-            case "meeting:add": intent = "Meeting"; break;
-        }
-        var startTime = foundUser.status.time;
-        var endTime = ( foundUser.status.endTime ? foundUser.status.endTime : foundUser.status.time + foundUser.defaultMeetingLength );
-        var date = foundUser.status.date;
-        var subject = foundUser.status.subject;
-        var invitees = foundUser.status.invitees;
-        
-        if( confirmSelect === "yes" ) { responseString += ":heavy_check_mark: Confirmed "; }
-        else if( confirmSelect === "no" ) { responseString += ":heavy_multiplication_x: Cancelled "; }
-        responseString += intent;
-        if( subject ) { responseString += ' to "' + subject + '"'; }
-        if( invitees ) {
-            responseString += " with";
-            if( invitees.length === 0 ) responseString += invitees[0];
-            else {
-                for( var i = 0 ; i < invitees.length; i++ ) {
-                    responseString += " " + invitees[i];
-                    if( i === invitees.length - 2 ) responseString += ', and';
-                    else if( i === invitees.length < invitees.length - 2 ) responseString += ',';
+    if( confirmSelect === "no" ) { res.send( ":heavy_multiplication_x: Cancelled request" ); }
+    else if( confirmSelect === "yes" ) {
+        // If the User Confirmed the request, Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
+        User.findOne( { slackId: slackId } ).exec()
+        .catch( userFindError => res.status(500).send( "User Find Error: " + userFindError ) )
+        .then( foundUser => {
+            if( !foundUser ) return res.status(500).send( "User not Found, invalid userId" );
+            currentUser = foundUser;
+            var intent;
+            switch( foundUser.status.intent ) {
+                case "reminderme:add": intent = "Reminder"; break;
+                case "meeting:add": intent = "Meeting"; break;
+            }
+            var startTime = foundUser.status.time;
+            var endTime = ( foundUser.status.endTime ? foundUser.status.endTime : foundUser.status.time + foundUser.defaultMeetingLength );
+            var date = foundUser.status.date;
+            var subject = foundUser.status.subject;
+            var invitees = foundUser.status.invitees;
+            
+            responseString += ":heavy_check_mark: Confirmed ";
+            responseString += intent;
+            if( subject ) { responseString += ' to "' + subject + '"'; }
+            if( invitees ) {
+                responseString += " with";
+                if( invitees.length === 0 ) responseString += invitees[0];
+                else {
+                    for( var i = 0 ; i < invitees.length; i++ ) {
+                        responseString += " " + invitees[i];
+                        if( i === invitees.length - 2 ) responseString += ', and';
+                        else if( i === invitees.length < invitees.length - 2 ) responseString += ',';
+                    }
                 }
             }
-        }
-        if( time ) { responseString += " at " + time; }
-        if( date ) responseString += " on " + date;
-        responseString += '.';
-        res.send( responseString );
-        
-        if( confirmSelect === "yes" ) {
-            switch( intent ) {
-                case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
-                case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
+            if( time ) { responseString += " at " + time; }
+            if( date ) responseString += " on " + date;
+            responseString += '.';
+            
+            if( confirmSelect === "yes" ) {
+                switch( intent ) {
+                    case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
+                    case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
+                }
             }
-        }
-    })
-    .catch( calendarError => res.status(500).send( "Calendar Event Error: " + calendarError ) )
-    .then( calendarResponse => {
-        currentUser.status = null;
-        currentUser.save();
-    });
+        })
+        .then( () => currentUser.save() )
+        .then( () => res.send( responseString ) )
+        .catch( error => {
+            console.log( "Error Confirming Request: " + error );
+            res.status(500).send( ":heavy_multiplication_x: Error Confirming Request: " + error );
+        });
+    }
 });
 
 module.exports = router;
