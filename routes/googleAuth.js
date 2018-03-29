@@ -48,16 +48,29 @@ module.exports = {
                     start: { date: date, timeZone: "America/Los_Angeles" },
                     end: { date: date, timeZone: "America/Los_Angeles" }
                 }
-            }, function( calendarInsertError, calendarInsertResponse ) {
-                if( calendarInsertError ) { reject( calendarInsertError ); return }
-                resolve( calendarInsertResponse );
+            }, function( calendarError, calendarResponse ) {
+                if( calendarError ) { reject( calendarError ); return }
+                resolve( calendarResponse );
             });
         });
     },
-    createMeeting( tokens, title, date ) {
+    createMeeting( tokens, title, date, invitees, startTime, endTime ) {
         oauth2Client.setCredentials( tokens );
+        var startDateTime = new Date( Date.parse( date + 'T' + startTime ) );
+        var endDateTime = new Date( Date.parse( date + 'T' + endTime ) );
         return new Promise( function( resolve, reject ) {
-            
+            calendar.events.insert({
+                auth: oauth2Client,
+                calendarId: 'primary',
+                resource: {
+                    summary: title,
+                    start: { dateTime: startDateTime, timeZone: "America/Los_Angeles" },
+                    end: { dateTime: endDateTime, timeZone: "America/Los_Angeles" }
+                }
+            }, function( calendarError, calendarResponse ) {
+                if( calendarError ) { reject( calendarError ); return }
+                resolve( calendarResponse );
+            });
         });
     }
 }

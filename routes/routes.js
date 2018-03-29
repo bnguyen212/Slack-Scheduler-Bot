@@ -54,7 +54,7 @@ rtm.on( 'message', ( event ) => {
             .then( savedUser => {
                 web.chat.postMessage({
                     "channel": event.channel,
-                    "text": "Google Log In: " + DOMAIN + "auth?auth_id=" + savedUser._id
+                    "text": "New User, Google Log In: " + DOMAIN + "auth?auth_id=" + savedUser._id
                 });
             });
         }
@@ -63,7 +63,7 @@ rtm.on( 'message', ( event ) => {
             console.log( "RTM Msg: User's Google Authentication token expired" );
             web.chat.postMessage({
                 "channel": event.channel,
-                "text": "Google Log In: " + DOMAIN + "auth?auth_id=" + foundUser._id
+                "text": "Google Session token expired, Log in Again: " + DOMAIN + "auth?auth_id=" + foundUser._id
             });
         }
         // If the Slack Bot has a pending request from the User, ask the User to Cancel or Confirm it
@@ -102,7 +102,6 @@ rtm.on( 'message', ( event ) => {
                 
                 web.chat.postMessage({
                     "channel": event.channel,
-                    // "text": event.text,
                     "attachments": [{
                         "text": response.result.fulfillment.speech,
                         "fallback": "Unable to confirm a Reminder or Meeting",
@@ -125,7 +124,7 @@ rtm.on( 'message', ( event ) => {
                 return foundUser.save();
             })
             .catch( userSaveError => console.log( "User Save Error:", userSaveError ) );
-        }   // End of Else Statement
+        }   // End of Else Statement, which forwarded a User's message to Slack-Bot
     }); // End of User.FindOne
 });
 
@@ -152,15 +151,19 @@ router.get( '/connect/callback', ( req, res ) => {
     .catch( userUpdateError => res.status(500).send( "User Update Error: " + userUpdateError ) )
     .then( updatedUser => {
         if( !updatedUser ) return res.status(500).send( "User not Found, invalid userId" );
-        res.send( "Logged in through Google." );
+        web.chat.postMessage({
+            "channel": event.channel,
+            "text": 'Logged in through Google. You can make requests to set "Reminders" or "Meetings".'
+        });
+        res.send( "Logged in through Google. You can now make requests to SchedulerBot." );
     });
 });
 
 router.post( '/slack/action', ( req, res ) => {
     // Handle event when User clicks on "Cancel" or "Confirm"
-    var action = JSON.parse( req.body.payload );
-    var confirmSelect = action.actions[0].value;
-    var slackId = String(action.user.id);
+    var payload = JSON.parse( req.body.payload );
+    var confirmSelect = payload.actions[0].value;
+    var slackId = String(payload.user.id);
     
     User.findOne( { slackId: slackId } ).exec()
     .catch( userFindError => res.status(500).send( "User Find Error: " + userFindError ) )
@@ -172,23 +175,44 @@ router.post( '/slack/action', ( req, res ) => {
             case "reminderme:add": intent = "Reminder"; break;
             case "meeting:add": intent = "Meeting"; break;
         }
-        var time = foundUser.status.time;
+        var startTime = foundUser.status.time;
+        var endTime = ( foundUser.status.endTime ? foundUser.status.endTime : foundUser.status.time + foundUser.defaultMeetingLength );
         var date = foundUser.status.date;
         var subject = foundUser.status.subject;
+        var invitees = foundUser.status.invitees;
         var responseString = "";
         
-        if( confirmSelect === "yes" ) { responseString += "Confirmed "; }
-        else if( confirmSelect === "no" ) { responseString += "Cancelled "; }
+        if( confirmSelect === "yes" ) { responseString += ":heavy_check_mark: Confirmed "; }
+        else if( confirmSelect === "no" ) { responseString += ":heavy_multiplication_x: Cancelled "; }
         responseString += intent;
         if( subject ) { responseString += ' to "' + subject + '"'; }
+        if( invitees ) {
+            responseString += " with";
+            if( invitees.length === 0 ) responseString += invitees[0];
+            else {
+                for( var i = 0 ; i < invitees.length; i++ ) {
+                    responseString += " " + invitees[i];
+                    if( i === invitees.length - 2 ) responseString += ', and';
+                    else if( i === invitees.length < invitees.length - 2 ) responseString += ',';
+                }
+            }
+        }
         if( time ) { responseString += " at " + time; }
         if( date ) responseString += " on " + date;
         responseString += '.';
-        foundUser.status = null;
         res.send( responseString );
-        return foundUser.save();
+        foundUser.status = null;
+        foundUser.save();
+        
+        if( confirmSelect === "yes" ) {
+            switch( intent ) {
+                case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
+                case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
+            }
+        }
     })
-    .catch( userSaveError => res.status(500).send( "User Save Error: " + userSaveError ) );
+    .catch( calendarError => res.status(500).send( "Calendar Event Error: " + calendarError ) );
+    // .then( calendarResponse => {} );
 });
 
 module.exports = router;
