@@ -167,7 +167,7 @@ router.get( '/connect/callback', ( req, res ) => {
     .catch( userUpdateError => res.status(500).send( "User Update Error: " + userUpdateError ) )
     .then( updatedUser => {
         if( !updatedUser ) return res.status(500).send( "User not Found, invalid userId" );
-        res.send( "Logged in through Google. You can now make requests to SchedulerBot." );
+        res.send( "Logged in through Google. You can now make requests to SchedulerBot. \nYou can close this window and go back to Slack." );
     });
 });
 
