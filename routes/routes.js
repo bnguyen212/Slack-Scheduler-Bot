@@ -82,6 +82,7 @@ rtm.on( 'message', ( event ) => {
                 headers: { "content-type": "application/x-www-form-urlencoded" }
             })
             .then( userList => {
+                console.log( userList );
                 // Save Slack Id: Username pair
                 for( var i = 0; i < userList.members.length; i++ ) {
                     userNameObj[ userList.members[i].id ] = userList.members[i].name;
