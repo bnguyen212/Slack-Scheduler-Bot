@@ -24,7 +24,7 @@ var DOMAIN = process.env.DOMAIN;
 var Models = require( '../models/models.js' );
     var User = Models.User;
     var Invite = Models.Invite;
-    var Task = Models.Task;
+    var Reminder = Models.Reminder;
     var Meeting = Models.Meeting;
 
 /**
