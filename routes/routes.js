@@ -167,6 +167,7 @@ router.post( '/slack/action', ( req, res ) => {
     .then( foundUser => {
         if( !foundUser ) return res.status(500).send( "User not Found, invalid userId" );
         // Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
+        currentUser = foundUser;
         var intent;
         switch( foundUser.status.intent ) {
             case "reminderme:add": intent = "Reminder"; break;
@@ -197,18 +198,17 @@ router.post( '/slack/action', ( req, res ) => {
         if( date ) responseString += " on " + date;
         responseString += '.';
         
-        foundUser.status = null;
-        foundUser.save();
         if( confirmSelect === "yes" ) {
             switch( intent ) {
                 case "Reminder": return googleAuth.createReminder( foundUser.googleTokens, subject, date );
                 case "Meeting": return googleAuth.createMeeting( foundUser.googleTokens, subject, date, invitees, startTime, endTime );
             }
         }
-        else res.send( responseString );
     })
     .catch( calendarError => res.status(500).send( "Calendar Event Error: " + calendarError ) )
     .then( calendarResponse => {
+        currentUser.status = null;
+        currentUser.save();
         res.send( responseString );
     });
 });
