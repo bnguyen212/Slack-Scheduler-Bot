@@ -43,7 +43,7 @@ var UserSchema = Schema({
 
 var ReminderSchema = Schema({
     subject: { type: String, required: true },
-    day: { type: String, required: true },
+    day: { type: String, required: true },      // date format: YYYY-MM-DD
     eventId: { type: String },
     slackId: { type: String }
 });

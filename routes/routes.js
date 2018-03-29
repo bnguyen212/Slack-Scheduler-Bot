@@ -27,10 +27,9 @@ var Models = require( '../models/models.js' );
     var Reminder = Models.Reminder;
     var Meeting = Models.Meeting;
 
-/**
- * Create and set up Slackbot RTM ( Real Time Messaging ) and its event listener
- * Create and set up WebClient for Slackbot
- */
+/** Create and set up Slackbot RTM ( Real Time Messaging ) and its event listener
+  * Create and set up WebClient for Slackbot
+  */
 var rtm = new RTMClient( SLACK_BOT_ACCESS_TOKEN );
 rtm.start();
 var web = new WebClient( SLACK_BOT_ACCESS_TOKEN );
@@ -191,7 +190,7 @@ router.post( '/slack/action', ( req, res ) => {
             responseString += ":heavy_check_mark: Confirmed ";
             responseString += intent;
             if( subject ) { responseString += ' to "' + subject + '"'; }
-            if( invitees ) {
+            if( invitees && invitees.length > 0 ) {
                 responseString += " with";
                 if( invitees.length === 1 ) responseString += ' ' + invitees[0];
                 else {
@@ -212,7 +211,7 @@ router.post( '/slack/action', ( req, res ) => {
                 case "Reminder":
                     var newReminder = new Reminder({
                         subject: subject,
-                        day: new Date( date ),
+                        day: date,
                         slackId: slackId
                     });
                     newReminder.save( saveError => { if( saveError ) console.log( "Reminder Save Error: " + saveError ); } );
