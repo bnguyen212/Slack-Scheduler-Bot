@@ -83,7 +83,6 @@ rtm.on( 'message', ( event ) => {
             })
             .then( response => response.json() )
             .then( userList => {
-                console.log( userList );
                 // Save Slack Id: Username pair
                 for( var i = 0; i < userList.members.length; i++ ) {
                     userNameObj[ userList.members[i].id ] = userList.members[i].name;
@@ -92,6 +91,7 @@ rtm.on( 'message', ( event ) => {
                 for( var slackId in userNameObj ) {
                     event.text = event.text.replace( "<@" + slackId + ">", userNameObj[ slackId ] )
                 }
+                console.log( event.text );
             })
             .then( () => {
                 return fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
