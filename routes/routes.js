@@ -204,7 +204,7 @@ router.post( '/slack/action', ( req, res ) => {
                     }
                 }
             }
-            if( time ) { responseString += " at " + time; }
+            if( startTime ) { responseString += " at " + startTime; }
             if( date ) responseString += " on " + date;
             responseString += '.';
             
