@@ -57,14 +57,6 @@ var UserSchema = Schema({
     type: Mixed
   }
 });
-UserSchema.statics.findOrCreateOneBySlackId = function( slackId ) {
-    return User.findOne( { slackId: slackId } )
-    .catch( userFindError => console.log( "User Find Error:", userFindError ) )
-    .then( foundUser => {
-        if( foundUser ) return foundUser;
-        return new User({ slackId: slackId }).save();
-    })
-}
 
 var ReminderSchema = Schema({
   subject: {

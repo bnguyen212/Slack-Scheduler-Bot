@@ -42,11 +42,24 @@ rtm.on( 'message', ( event ) => {
     if( event.subtype ) return;
     // Check if User exists on Database ( MongoDB ) --- If not, create a User
     var slackId = event.user;
-    User.findOrCreateOneBySlackId( slackId )
+    User.findOne( { slackId: slackId } ).exec()
     .catch( userFindError => console.log( "User Find Error:", userFindError ) )
     .then( foundUser => {
+        // If it is a new User, save a new User, and ask for Google Permissions
+        if( !foundUser ) {
+            console.log( "RTM Msg: New User: Log in through Google" );
+            var newUser = new User({ slackId: slackId });
+            newUser.save()
+            .catch( userSaveError => console.log( "User Save Error:", userSaveError ) )
+            .then( savedUser => {
+                web.chat.postMessage({
+                    "channel": event.channel,
+                    "text": "Google Log In: " + DOMAIN + "auth?auth_id=" + savedUser._id
+                });
+            });
+        }
         // If it is a new User, or if the User's token doesn't exist or has expired, ask for Google Permissions again
-        if( !foundUser.googleTokens || foundUser.googleTokens.expiry_date < Date.now() ) {
+        else if( !foundUser.googleTokens || foundUser.googleTokens.expiry_date < Date.now() ) {
             console.log( "RTM Msg: User's Google Authentication token expired" );
             web.chat.postMessage({
                 "channel": event.channel,
