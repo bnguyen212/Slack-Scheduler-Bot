@@ -193,7 +193,7 @@ router.post( '/slack/action', ( req, res ) => {
             if( subject ) { responseString += ' to "' + subject + '"'; }
             if( invitees ) {
                 responseString += " with";
-                if( invitees.length === 1 ) responseString += invitees[0];
+                if( invitees.length === 1 ) responseString += ' ' + invitees[0];
                 else {
                     for( var i = 0 ; i < invitees.length; i++ ) {
                         responseString += " " + invitees[i];
@@ -212,7 +212,7 @@ router.post( '/slack/action', ( req, res ) => {
                 case "Reminder":
                     var newReminder = new Reminder({
                         subject: subject,
-                        date: new Date( date ),
+                        day: new Date( date ),
                         slackId: slackId
                     });
                     newReminder.save( saveError => { if( saveError ) console.log( "Reminder Save Error: " + saveError ); } );
