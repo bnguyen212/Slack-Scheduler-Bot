@@ -296,11 +296,25 @@ router.post( '/slack/action', ( req, res ) => {
                             createdAt: Date.now(),
                             requesterId: slackId
                         });
-                        newMeeting.save( saveError => { if( saveError ) console.log( "Meeting Save Error: " + saveError ); } );
-                        return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
+                        Promise.all( [ newMeeting.save(), googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime ) ] )
+                    }
+                    else {
+                        responseString = "Conflicting timeslot for Meeting.";
                     }
                 })
-                .catch( error => res.send( "Error Confirming Meeting: " + error ) );
+                // Clear user's pending request
+                .then( () => {
+                    currentUser.status = null;
+                    return currentUser.save();
+                })
+                // Send the User a message based on the Request, and how it was handled
+                .then( () => res.send( responseString ) )
+                .catch( error => {
+                    currentUser.status = null;
+                    currentUser.save();
+                    console.log( "Error Confirming Request: " + error );
+                    res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
+                });
             }   // End of case: intent === "Meeting"
         }   // End of Switch statement for intent
     }); // End of User.FindOne
