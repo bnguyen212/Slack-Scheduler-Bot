@@ -191,6 +191,7 @@ router.post( '/slack/action', ( req, res ) => {
             console.log( "Error Cancelling Request: " + error );
             res.send( ":heavy_multiplication_x: Error Cancelling Request: " + error );
         });
+        return;
     }
     // If the User Confirmed the request, Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
     User.findOne( { slackId: slackId }, ( userFindError, foundUser ) => {
