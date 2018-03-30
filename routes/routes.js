@@ -238,14 +238,15 @@ router.post( '/slack/action', ( req, res ) => {
                 case "Meeting":
                     var startDateTime = new Date( date + 'T' + startTime );
                     // Date obj, with local timezone
-                    var startDateTimeOffset = new Date( startDateTime.getTime() + startDateTime.getTimezoneOffset()*1000*60 );
+                    var localTimezoneOffset = new Date().getTimezoneOffset();
+                    var startDateTimeOffset = new Date( startDateTime.getTime() + localTimezoneOffset*1000*60 );
                     var endDateTimeOffset;
                     if( endTime ) {
                         var endDateTime = new Date( date + 'T' + endTime );
-                        endDateTimeOffset = new Date( endDateTime.getTime() + endDateTime.getTimezoneOffset()*1000*60 );
+                        endDateTimeOffset = new Date( endDateTime.getTime() + localTimezoneOffset*1000*60 );
                     }
                     else {
-                        endDateTimeOffset = new Date( Date.parse( startDateTimeOffset ) + 1000*60*foundUser.defaultMeetingLength );
+                        endDateTimeOffset = new Date( startDateTimeOffset.getTime() + 1000*60*foundUser.defaultMeetingLength );
                     }
                     var newMeeting = Meeting({
                         startDate: startDateTimeOffset,
