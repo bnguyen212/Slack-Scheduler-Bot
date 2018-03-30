@@ -178,6 +178,7 @@ router.get( '/connect/callback', ( req, res ) => {
 // Handle event when User clicks "Cancel" or "Confirm" on the Slack-Bot's interactive message
 router.post( '/slack/action', ( req, res ) => {
     var payload = JSON.parse( req.body.payload );
+    console.log( "Payload:", payload );
     var confirmSelect = payload.actions[0].value;
     var slackId = String( payload.user.id );
     var responseString = "";
@@ -202,7 +203,7 @@ router.post( '/slack/action', ( req, res ) => {
         switch( foundUser.status.intent ) {
             case "reminderme:add": intent = "Reminder"; break;
             case "meeting:add": intent = "Meeting"; break;
-            default: intent = "Cancel"; break;
+            default: intent = "Cancel";
         }
         var startTime = foundUser.status.startTime;
         var endTime = foundUser.status.endTime;
@@ -258,14 +259,18 @@ router.post( '/slack/action', ( req, res ) => {
                 var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( startDateTime.getTime() + 1000*60*foundUser.defaultMeetingLength ) );
                 var validMeeting = true;
                 // Get Slack Id and Username pair
-                var username;
+                var username;           // Current User's username
+                var userNameObj = {};   // Every User's Slack Id and Username
                 fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
                     headers: { "content-type": "application/x-www-form-urlencoded" }
                 })
                 .then( response => response.json() )
                 .then( userList => {
                     // Save Slack Id: Username pair
-                    for( var i = 0; i < userList.members.length; i++ ) { if( userList.members[i].id === foundUser.slackId ) username = userList.members[i].real_name; }
+                    for( var i = 0; i < userList.members.length; i++ ) {
+                        if( userList.members[i].id === foundUser.slackId ) username = userList.members[i].real_name;
+                        userNameObj[ userList.members[i].id ] = userList.members[i].real_name;
+                    }
                     return Meeting.find( {} ).exec();
                 })
                 // Check if the User has Meetings today (max 3), and check for conflicting timeslots for the Meeting, based on startDateTime and endDateTime.
