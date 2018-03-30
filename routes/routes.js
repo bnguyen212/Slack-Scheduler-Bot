@@ -236,10 +236,12 @@ router.post( '/slack/action', ( req, res ) => {
                     newReminder.save( saveError => { if( saveError ) console.log( "Reminder Save Error: " + saveError ); } );
                     return googleAuth.createReminder( foundUser.googleTokens, subject, date );
                 case "Meeting":
-                    var startDateTime = new Date( date + 'T' + startTime );
-                    // Date obj, with local timezone
                     var localTimezoneOffset = new Date().getTimezoneOffset();
+                    console.log( date, startTime );
+                    var startDateTime = new Date( date + 'T' + startTime );
+                    console.log( startDateTime );
                     var startDateTimeOffset = new Date( startDateTime.getTime() + localTimezoneOffset*1000*60 );
+                    console.log( startDateTimeOffset );
                     var endDateTimeOffset;
                     if( endTime ) {
                         var endDateTime = new Date( date + 'T' + endTime );
@@ -248,8 +250,6 @@ router.post( '/slack/action', ( req, res ) => {
                     else {
                         endDateTimeOffset = new Date( startDateTimeOffset.getTime() + 1000*60*foundUser.defaultMeetingLength );
                     }
-                    console.log( startDateTimeOffset );
-                    console.log( endDateTimeOffset );
                     var newMeeting = Meeting({
                         startDate: startDateTimeOffset,
                         endDate: endDateTimeOffset,
