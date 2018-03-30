@@ -237,30 +237,18 @@ router.post( '/slack/action', ( req, res ) => {
                     newReminder.save( saveError => { if( saveError ) console.log( "Reminder Save Error: " + saveError ); } );
                     return googleAuth.createReminder( foundUser.googleTokens, subject, date );
                 case "Meeting":
-                    var localTimezoneOffset = new Date().getTimezoneOffset();
-                    console.log( date, startTime );
                     var startDateTime = new Date( date + 'T' + startTime );
-                    console.log( startDateTime );
-                    var startDateTimeOffset = new Date( startDateTime.getTime() + localTimezoneOffset*1000*60 );
-                    console.log( startDateTimeOffset );
-                    var endDateTimeOffset;
-                    if( endTime ) {
-                        var endDateTime = new Date( date + 'T' + endTime );
-                        endDateTimeOffset = new Date( endDateTime.getTime() + localTimezoneOffset*1000*60 );
-                    }
-                    else {
-                        endDateTimeOffset = new Date( startDateTimeOffset.getTime() + 1000*60*foundUser.defaultMeetingLength );
-                    }
+                    var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( startDateTime.getTime() + 1000*60*foundUser.defaultMeetingLength ) );
                     var newMeeting = Meeting({
-                        startDate: startDateTimeOffset,
-                        endDate: endDateTimeOffset,
+                        startDate: startDateTime,
+                        endDate: endDateTime,
                         invitees: invitees,
                         subject: subject,
                         createdAt: Date.now(),
                         requesterId: slackId
                     });
                     newMeeting.save( saveError => { if( saveError ) console.log( "Meeting Save Error: " + saveError ); } );
-                    return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTimeOffset, endDateTimeOffset );
+                    return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
             }
         })
         // Clear user's pending request
