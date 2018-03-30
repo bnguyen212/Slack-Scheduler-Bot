@@ -200,11 +200,12 @@ router.post( '/slack/action', ( req, res ) => {
         switch( foundUser.status.intent ) {
             case "reminderme:add": intent = "Reminder"; break;
             case "meeting:add": intent = "Meeting"; break;
+            default: intent = "Cancel"; break;
         }
         var startTime = foundUser.status.startTime;
         var endTime = foundUser.status.endTime;
         var date = foundUser.status.date;
-        var subject = foundUser.status.subject;
+        var subject = foundUser.status.subject || "Meeting";
         var invitees = foundUser.status.invitees;
         // Generate Response String, that has request information
         responseString += ":heavy_check_mark: Confirmed ";
@@ -292,14 +293,14 @@ router.post( '/slack/action', ( req, res ) => {
                             startDate: startDateTime,
                             endDate: endDateTime,
                             invitees: invitees,
-                            subject: subject || "Meeting",
+                            subject: subject,
                             createdAt: Date.now(),
                             requesterId: slackId
                         });
                         Promise.all( [ newMeeting.save(), googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime ) ] )
                     }
                     else {
-                        responseString = "Conflicting timeslot for Meeting.";
+                        responseString = ":heavy_multiplication_x: Conflicting timeslot for Meeting.";
                     }
                 })
                 // Clear user's pending request
@@ -316,6 +317,19 @@ router.post( '/slack/action', ( req, res ) => {
                     res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
                 });
             }   // End of case: intent === "Meeting"
+            default: {
+                responseString = ":heavy_multiplication_x: Cancelled request."
+                currentUser.status = null;
+                currentUser.save()
+                // Send the User a message based on the Request, and how it was handled
+                .then( () => res.send( responseString ) )
+                .catch( error => {
+                    currentUser.status = null;
+                    currentUser.save();
+                    console.log( "Error Confirming Request: " + error );
+                    res.send( ":heavy_multiplication_x: Error Cancelling Request: " + error );
+                });
+            }
         }   // End of Switch statement for intent
     }); // End of User.FindOne
 });
