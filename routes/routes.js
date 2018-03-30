@@ -182,7 +182,8 @@ router.post( '/slack/action', ( req, res ) => {
     var responseString = "";
     var currentUser;
     
-    if( confirmSelect === "no" ) {
+    if( confirmSelect !== "yes" ) {
+        // Handle when the User cancels the request
         User.findOneAndUpdate( { slackId: slackId }, { status: null } ).exec()
         .then( () => res.send( ":heavy_multiplication_x: Cancelled request" ) )
         .catch( error => {
@@ -190,72 +191,103 @@ router.post( '/slack/action', ( req, res ) => {
             res.send( ":heavy_multiplication_x: Error Cancelling Request: " + error );
         });
     }
-    else if( confirmSelect === "yes" ) {
-        // If the User Confirmed the request, Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
-        User.findOne( { slackId: slackId } ).exec()
-        .then( foundUser => {
-            if( !foundUser ) return res.status(500).send( "User not Found, invalid userId" );
-            currentUser = foundUser;
-            var intent;
-            switch( foundUser.status.intent ) {
-                case "reminderme:add": intent = "Reminder"; break;
-                case "meeting:add": intent = "Meeting"; break;
+    // If the User Confirmed the request, Generate a Message for the Slack-Bot to send back to the User, based on the User's Request
+    User.findOne( { slackId: slackId }, ( userFindError, foundUser ) => {
+        if( userFindError ) return res.status(500).send( "User Find Error, " + userFindError );
+        if( !foundUser ) return res.status(500).send( "User not Found, invalid userId" );
+        currentUser = foundUser;
+        var intent;
+        switch( foundUser.status.intent ) {
+            case "reminderme:add": intent = "Reminder"; break;
+            case "meeting:add": intent = "Meeting"; break;
+        }
+        var startTime = foundUser.status.startTime;
+        var endTime = foundUser.status.endTime;
+        var date = foundUser.status.date;
+        var subject = foundUser.status.subject;
+        var invitees = foundUser.status.invitees;
+        // Generate Response String, that has request information
+        responseString += ":heavy_check_mark: Confirmed ";
+        responseString += intent;
+        if( subject ) { responseString += ' to "' + subject + '"'; }
+        if( invitees && invitees.length > 0 ) {
+            responseString += " with";
+            if( invitees.length === 1 ) responseString += ' ' + invitees[0];
+            else {
+                for( var i = 0 ; i < invitees.length; i++ ) {
+                    responseString += " " + invitees[i];
+                    if( i === invitees.length - 2 ) responseString += ', and';
+                    else if( i === invitees.length < invitees.length - 2 ) responseString += ',';
+                }
             }
-            var startTime = foundUser.status.startTime;
-            var endTime = foundUser.status.endTime;
-            var date = foundUser.status.date;
-            var subject = foundUser.status.subject;
-            var invitees = foundUser.status.invitees;
-            // Generate Response String, that has request information
-            responseString += ":heavy_check_mark: Confirmed ";
-            responseString += intent;
-            if( subject ) { responseString += ' to "' + subject + '"'; }
-            if( invitees && invitees.length > 0 ) {
-                responseString += " with";
-                if( invitees.length === 1 ) responseString += ' ' + invitees[0];
-                else {
-                    for( var i = 0 ; i < invitees.length; i++ ) {
-                        responseString += " " + invitees[i];
-                        if( i === invitees.length - 2 ) responseString += ', and';
-                        else if( i === invitees.length < invitees.length - 2 ) responseString += ',';
+        }
+        if( startTime ) { responseString += " at " + startTime; }
+        if( date ) responseString += " on " + date;
+        responseString += '.';
+        // Add a Google Calendar Event (Reminder or Meeting), based on the User's request
+            // Reminders are All-Day events in Google Calendar
+        // Save a Reminder or Meeting in the Database
+        switch( intent ) {
+            case "Reminder": {
+                var newReminder = new Reminder({
+                    subject: subject,
+                    day: date,
+                    slackId: slackId
+                });
+                Promise.all( [ newReminder.save(), googleAuth.createReminder( foundUser.googleTokens, subject, date ) ] )
+                // Clear user's pending request
+                .then( () => {
+                    currentUser.status = null;
+                    return currentUser.save();
+                })
+                // Send the User a message based on the Request, and how it was handled
+                .then( () => res.send( responseString ) )
+                .catch( error => {
+                    currentUser.status = null;
+                    currentUser.save();
+                    console.log( "Error Confirming Request: " + error );
+                    res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
+                });
+            }
+            case "Meeting": {
+                var startDateTime = new Date( date + 'T' + startTime );
+                var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( startDateTime.getTime() + 1000*60*foundUser.defaultMeetingLength ) );
+                var validMeeting = true;
+                // Get Slack Id and Username pair
+                var username;
+                fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
+                    headers: { "content-type": "application/x-www-form-urlencoded" }
+                })
+                .then( response => response.json() )
+                .then( userList => {
+                    // Save Slack Id: Username pair
+                    for( var i = 0; i < userList.members.length; i++ ) { if( userList.members[i].id === foundUser.slackId ) username = userList.members[i].real_name; }
+                    return Meeting.find( {} ).exec();
+                })
+                // Check if the User has Meetings today (max 3), and check for conflicting timeslots for the Meeting, based on startDateTime and endDateTime.
+                .then( foundMeetingsArray => {
+                    var count = 0;
+                    for( var i = 0; i < foundMeetingsArray.length; i++ ) {
+                        // Only look at Meetings for the same day as the requested day
+                        if( foundMeetingsArray[i].startDate.getDate() === startDateTime.getDate()
+                        && foundMeetingsArray[i].startDate.getMonth() === startDateTime.getMonth()
+                        && foundMeetingsArray[i].startDate.getYear() === startDateTime.getYear() ) {
+                            // Check for Overlaping timeslots
+                            if( foundMeetingsArray[i].startDate <= startDateTime && startDateTime < foundMeetingsArray[i].endDate 
+                            || foundMeetingsArray[i].startDate <= endDateTime && endDateTime < foundMeetingsArray[i].endDate ) {
+                                validMeeting = false; return;
+                            }
+                            // Check number of Meetings for the requested day
+                            if( foundMeetingsArray[i].requesterId === foundUser.slackId ) { count++; continue; }
+                            for( var j = 0; j < foundMeetingsArray[i].invitees.length; j++ ) {
+                                if( foundMeetingsArray[i].invitees[j] === username ) { count++; break; }
+                            }
+                        }
+                        if( count >= 3 ) { validMeeting = false; return; }
                     }
-                }
-            }
-            if( startTime ) { responseString += " at " + startTime; }
-            if( date ) responseString += " on " + date;
-            responseString += '.';
-            // Add a Google Calendar Event (Reminder or Meeting), based on the User's request
-                // Reminders are All-Day events in Google Calendar
-            // Save a Reminder or Meeting in the Database
-            switch( intent ) {
-                case "Reminder": {
-                    var newReminder = new Reminder({
-                        subject: subject,
-                        day: date,
-                        slackId: slackId
-                    });
-                    newReminder.save( saveError => { if( saveError ) console.log( "Reminder Save Error: " + saveError ); } );
-                    return googleAuth.createReminder( foundUser.googleTokens, subject, date );
-                }
-                case "Meeting": {
-                    var startDateTime = new Date( date + 'T' + startTime );
-                    var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( startDateTime.getTime() + 1000*60*foundUser.defaultMeetingLength ) );
-                    // Check if the User has Meetings today (max 3), and check for conflicting timeslots for the Meeting, based on startDateTime and endDateTime.
-                    var userNameObj = {};
-                    fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
-                        headers: { "content-type": "application/x-www-form-urlencoded" }
-                    })
-                    .then( response => response.json() )
-                    .then( userList => {
-                        // Save Slack Id: Username pair
-                        for( var i = 0; i < userList.members.length; i++ ) { userNameObj[ userList.members[i].id ] = userList.members[i].real_name; }
-                        return Meeting.find( {} ).exec();
-                    })
-                    .then( foundMeetingsArray => {
-                        var count = 0;
-                        
-                    })
-                    .then( () => {
+                })
+                .then( () => {
+                    if( validMeeting ) {
                         var newMeeting = Meeting({
                             startDate: startDateTime,
                             endDate: endDateTime,
@@ -265,26 +297,13 @@ router.post( '/slack/action', ( req, res ) => {
                             requesterId: slackId
                         });
                         newMeeting.save( saveError => { if( saveError ) console.log( "Meeting Save Error: " + saveError ); } );
-                    })
-                    .catch( error => res.send( "Error Confirming Meeting: " + error ) );
-                    return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
-                }
-            }
-        })
-        // Clear user's pending request
-        .then( () => {
-            currentUser.status = null;
-            return currentUser.save();
-        })
-        // Send the User a message based on the Request, and how it was handled
-        .then( () => res.send( responseString ) )
-        .catch( error => {
-            currentUser.status = null;
-            currentUser.save();
-            console.log( "Error Confirming Request: " + error );
-            res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
-        });
-    } // End of if statement( confirmSelect === "yes" )
+                        return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
+                    }
+                })
+                .catch( error => res.send( "Error Confirming Meeting: " + error ) );
+            }   // End of case: intent === "Meeting"
+        }   // End of Switch statement for intent
+    }); // End of User.FindOne
 });
 
 module.exports = router;
