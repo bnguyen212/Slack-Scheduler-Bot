@@ -107,7 +107,9 @@ rtm.on( 'message', ( event ) => {
             .then( response => {
                 // If the User's request is incomplete, or the Slack-Bot asks for more information.
                 // If the User gives a greeting, the Slack-Bot does the same.
-                if( response.result.actionIncomplete || response.result.action === "welcome" || response.result.metadata.intentName === "welcome" ) {
+                if( response.result.actionIncomplete
+                 || response.result.action === "welcome"
+                 || response.result.metadata.intentName === "welcome" ) {
                     web.chat.postMessage({
                         "channel": event.channel,
                         "text": response.result.fulfillment.speech
@@ -257,6 +259,8 @@ router.post( '/slack/action', ( req, res ) => {
         .then( () => res.send( responseString ) )
         .catch( error => {
             console.log( "Error Confirming Request: " + error );
+            currentUser.status = null;
+            currentUser.save();
             res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
         });
     } // End of if statement( confirmSelect === "yes" )

@@ -56,14 +56,16 @@ module.exports = {
     },
     createMeeting( tokens, title, invitees, startDateTime, endDateTime ) {
         oauth2Client.setCredentials( tokens );
+        var timezoneOffset = new Date().getTimezoneOffset();
+        var offsetString = ( timezoneOffset >= 0 ? "+"+timezoneOffset : String(timezoneOffset) );
         return new Promise( function( resolve, reject ) {
             calendar.events.insert({
                 auth: oauth2Client,
                 calendarId: 'primary',
                 resource: {
                     summary: title,
-                    start: { dateTime: startDateTime, 'timeZone': 'MST7MDT' },
-                    end: { dateTime: endDateTime, 'timeZone': 'MST7MDT' }
+                    start: { dateTime: startDateTime + timezoneOffset },
+                    end: { dateTime: endDateTime + timezoneOffset }
                 }
             }, function( calendarError, calendarResponse ) {
                 if( calendarError ) { reject( calendarError ); return }
