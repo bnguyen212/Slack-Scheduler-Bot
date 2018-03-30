@@ -248,6 +248,8 @@ router.post( '/slack/action', ( req, res ) => {
                     else {
                         endDateTimeOffset = new Date( startDateTimeOffset.getTime() + 1000*60*foundUser.defaultMeetingLength );
                     }
+                    console.log( startDateTimeOffset );
+                    console.log( endDateTimeOffset );
                     var newMeeting = Meeting({
                         startDate: startDateTimeOffset,
                         endDate: endDateTimeOffset,
@@ -257,7 +259,7 @@ router.post( '/slack/action', ( req, res ) => {
                         requesterId: slackId
                     });
                     newMeeting.save( saveError => { if( saveError ) console.log( "Meeting Save Error: " + saveError ); } );
-                    return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
+                    return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTimeOffset, endDateTimeOffset );
             }
         })
         // Clear user's pending request
