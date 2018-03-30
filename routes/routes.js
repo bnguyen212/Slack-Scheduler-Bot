@@ -77,7 +77,8 @@ rtm.on( 'message', ( event ) => {
         else {
             console.log( "RTM Msg: User gives a new request to Slack-Bot" );
             // Get a List of all Users in the Slack Workspace, to convert Slack id codes into Slack usernames
-            var userNameObj = {};   // Object to save Slack User Id's and Usernames     // The keys are Id's    // The values are the Usernames
+            // Object to save Slack User Id's and Usernames     // The keys are Id's    // The values are the Usernames
+            var userNameObj = {};
             fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
                 headers: { "content-type": "application/x-www-form-urlencoded" }
             })
@@ -105,7 +106,7 @@ rtm.on( 'message', ( event ) => {
             })
             .then( response => response.json() )
             .then( response => {
-                // If the User's request is incomplete, or the Slack-Bot asks for more information.
+                // If the User's request is incomplete, the Slack-Bot asks for more information.
                 // If the User gives a greeting, the Slack-Bot does the same.
                 if( response.result.actionIncomplete
                  || response.result.action === "welcome"
@@ -117,7 +118,6 @@ rtm.on( 'message', ( event ) => {
                     return;
                 }
                 // Else, the User's request is complete, and the Slack-Bot asks the User to Cancel or Confirm it
-                
                 web.chat.postMessage({
                     "channel": event.channel,
                     "attachments": [{
