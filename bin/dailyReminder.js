@@ -22,14 +22,14 @@ var Models = require( '../models/models.js' );
 function dailyReminder() {
     Reminder.find( {} ).exec()
     .then( foundReminderArray => {
-        var today = new Date().getTime();
+        var today = new Date();
         var promiseArray = [];
         // Find all Reminders in Mongoose Database for Today and Tomorrow
         for( var i = 0; i < foundReminderArray.length; i++ ){
             var reminder = foundReminderArray[i];
             var reminderDate = new Date( reminder.day );
-            var timeDiff = reminderDate.getTime() - today;
-            if( timeDiff >= 0 && timeDiff <= 1000*60*60*24*2 ) {
+            var timeDiff = reminderDate - today;
+            if( timeDiff >= -1000*60 && timeDiff <= 1000*60*60*24*2 ) {
                 // For Each Reminder, Send a Message to that Slack User
                 // If the Reminder is for Today, remove that Reminder from the Database
                 if( timeDiff <= 1000*60*60*24 ) {

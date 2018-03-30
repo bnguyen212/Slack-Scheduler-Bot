@@ -182,8 +182,8 @@ router.post( '/slack/action', ( req, res ) => {
     var responseString = "";
     var currentUser;
     
+    // Handle when the User cancels the request
     if( confirmSelect !== "yes" ) {
-        // Handle when the User cancels the request
         User.findOneAndUpdate( { slackId: slackId }, { status: null } ).exec()
         .then( () => res.send( ":heavy_multiplication_x: Cancelled request" ) )
         .catch( error => {
@@ -249,6 +249,7 @@ router.post( '/slack/action', ( req, res ) => {
                     console.log( "Error Confirming Request: " + error );
                     res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
                 });
+                break;
             }
             case "Meeting": {
                 var startDateTime = new Date( date + 'T' + startTime );
@@ -316,6 +317,7 @@ router.post( '/slack/action', ( req, res ) => {
                     console.log( "Error Confirming Request: " + error );
                     res.send( ":heavy_multiplication_x: Error Confirming Request: " + error );
                 });
+                break;
             }   // End of case: intent === "Meeting"
             default: {
                 responseString = ":heavy_multiplication_x: Cancelled request."
