@@ -29,10 +29,10 @@ function dailyReminder() {
             var reminder = foundReminderArray[i];
             var reminderDate = new Date( reminder.day + "T00:00:00" );
             var timeDiff = reminderDate - today;
-            if( timeDiff >= -1000*60 && timeDiff <= 1000*60*60*24*2 ) {
+            if( ( timeDiff >= -1000*20 ) && ( timeDiff <= 1000*60*60*24*2 - 1000*20 ) ) {
                 // For Each Reminder, Send a Message to that Slack User
                 // If the Reminder is for Today, remove that Reminder from the Database
-                if( timeDiff <= 1000*60*60*24 ) {
+                if( timeDiff <= 1000*60*60*24 - 1000*20 ) {
                     promiseArray.push( web.chat.postMessage({
                         "channel": reminder.slackId,
                         "text": "Reminder for Today: " + reminder.subject
