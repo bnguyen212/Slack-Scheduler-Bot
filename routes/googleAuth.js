@@ -1,6 +1,5 @@
 var google = require( 'googleapis' );
 var calendar = google.calendar( 'v3' );
-// var googleAuth = require( 'google-auth-library' );
 var OAuth2 = google.auth.OAuth2;
 
 if( !process.env.GOOGLE_CLIENT_ID ) { throw new Error( 'process.env.GOOGLE_CLIENT_ID not found' ); process.exit(1); return; }
@@ -56,16 +55,14 @@ module.exports = {
     },
     createMeeting( tokens, title, invitees, startDateTime, endDateTime ) {
         oauth2Client.setCredentials( tokens );
-        var timezoneOffset = new Date().getTimezoneOffset();
-        var offsetString = ( timezoneOffset >= 0 ? "+"+timezoneOffset : String(timezoneOffset) );
         return new Promise( function( resolve, reject ) {
             calendar.events.insert({
                 auth: oauth2Client,
                 calendarId: 'primary',
                 resource: {
                     summary: title,
-                    start: { dateTime: startDateTime + timezoneOffset },
-                    end: { dateTime: endDateTime + timezoneOffset }
+                    start: { dateTime: startDateTime },
+                    end: { dateTime: endDateTime }
                 }
             }, function( calendarError, calendarResponse ) {
                 if( calendarError ) { reject( calendarError ); return }

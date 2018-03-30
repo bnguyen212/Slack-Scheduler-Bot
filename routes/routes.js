@@ -237,6 +237,8 @@ router.post( '/slack/action', ( req, res ) => {
                     return googleAuth.createReminder( foundUser.googleTokens, subject, date );
                 case "Meeting":
                     var startDateTime = new Date( date + 'T' + startTime );
+                    // Convert to local Timezone
+                    startDateTime = new Date( Date.parse( startDateTime ) + startDateTime.getTimezoneOffset * 60000 );
                     var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( Date.parse( startDateTime ) + 1000*60*foundUser.defaultMeetingLength ) );
                     var newMeeting = Meeting({
                         startDate: startDateTime,
