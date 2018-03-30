@@ -174,8 +174,8 @@ router.get( '/connect/callback', ( req, res ) => {
     });
 });
 
+// Handle event when User clicks "Cancel" or "Confirm" on the Slack-Bot's interactive message
 router.post( '/slack/action', ( req, res ) => {
-    // Handle event when User clicks on "Cancel" or "Confirm"
     var payload = JSON.parse( req.body.payload );
     var confirmSelect = payload.actions[0].value;
     var slackId = String( payload.user.id );
@@ -228,7 +228,7 @@ router.post( '/slack/action', ( req, res ) => {
                 // Reminders are All-Day events in Google Calendar
             // Save a Reminder or Meeting in the Database
             switch( intent ) {
-                case "Reminder":
+                case "Reminder": {
                     var newReminder = new Reminder({
                         subject: subject,
                         day: date,
@@ -236,19 +236,39 @@ router.post( '/slack/action', ( req, res ) => {
                     });
                     newReminder.save( saveError => { if( saveError ) console.log( "Reminder Save Error: " + saveError ); } );
                     return googleAuth.createReminder( foundUser.googleTokens, subject, date );
-                case "Meeting":
+                }
+                case "Meeting": {
                     var startDateTime = new Date( date + 'T' + startTime );
                     var endDateTime = ( endTime ? new Date( date + 'T' + endTime ) : new Date( startDateTime.getTime() + 1000*60*foundUser.defaultMeetingLength ) );
-                    var newMeeting = Meeting({
-                        startDate: startDateTime,
-                        endDate: endDateTime,
-                        invitees: invitees,
-                        subject: subject,
-                        createdAt: Date.now(),
-                        requesterId: slackId
-                    });
-                    newMeeting.save( saveError => { if( saveError ) console.log( "Meeting Save Error: " + saveError ); } );
+                    // Check if the User has Meetings today (max 3), and check for conflicting timeslots for the Meeting, based on startDateTime and endDateTime.
+                    var userNameObj = {};
+                    fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
+                        headers: { "content-type": "application/x-www-form-urlencoded" }
+                    })
+                    .then( response => response.json() )
+                    .then( userList => {
+                        // Save Slack Id: Username pair
+                        for( var i = 0; i < userList.members.length; i++ ) { userNameObj[ userList.members[i].id ] = userList.members[i].real_name; }
+                        return Meeting.find( {} ).exec();
+                    })
+                    .then( foundMeetingsArray => {
+                        var count = 0;
+                        
+                    })
+                    .then( () => {
+                        var newMeeting = Meeting({
+                            startDate: startDateTime,
+                            endDate: endDateTime,
+                            invitees: invitees,
+                            subject: subject || "Meeting",
+                            createdAt: Date.now(),
+                            requesterId: slackId
+                        });
+                        newMeeting.save( saveError => { if( saveError ) console.log( "Meeting Save Error: " + saveError ); } );
+                    })
+                    .catch( error => res.send( "Error Confirming Meeting: " + error ) );
                     return googleAuth.createMeeting( foundUser.googleTokens, subject, invitees, startDateTime, endDateTime );
+                }
             }
         })
         // Clear user's pending request
