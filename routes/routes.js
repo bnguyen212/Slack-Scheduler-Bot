@@ -106,11 +106,12 @@ rtm.on( 'message', ( event ) => {
             })
             .then( response => response.json() )
             .then( response => {
+                console.log( response.result );
                 // If the User's request is incomplete, the Slack-Bot asks for more information.
                 // If the User gives a greeting, the Slack-Bot does the same.
                 if( response.result.actionIncomplete
-                 || response.result.action === "welcome"
-                 || response.result.metadata.intentName === "welcome" ) {
+                || response.result.action === "welcome"
+                || response.result.metadata.intentName === "welcome" ) {
                     web.chat.postMessage({
                         "channel": event.channel,
                         "text": response.result.fulfillment.speech
