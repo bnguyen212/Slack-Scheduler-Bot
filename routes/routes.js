@@ -41,7 +41,7 @@ rtm.on( 'message', ( event ) => {
     if( event.subtype ) return;
     // Check if User exists on Database ( MongoDB ) --- If not, create a User
     var slackId = event.user;
-    User.findOne( { slackId: slackId } ).exec()
+    User.findOne( { slackId: slackId } )
     .catch( userFindError => console.log( "User Find Error:", userFindError ) )
     .then( foundUser => {
         // If it is a new User, save a new User, and ask for Google Permissions
@@ -76,23 +76,28 @@ rtm.on( 'message', ( event ) => {
         // Else, give the User's request to the Slack Bot, and give the Slack Bot's response back to the User
         else {
             console.log( "RTM Msg: User gives a new request to Slack-Bot" );
+            var intent;
             // Get a List of all Users in the Slack Workspace, to convert Slack id codes into Slack usernames
-            // Object to save Slack User Id's and Usernames     // The keys are Id's    // The values are the Usernames
-            var userNameObj = {};
+            var userSlackIdArray = [];
+            var userNameArray = [];
+            var userInvitedIndexes = [];    // For Meeting invitees, these are the Indexes of User Slack Id's for userSlackIdArray
+            // Fetch User Data for the current Slack Workspace
             fetch( 'https://slack.com/api/users.list?token=' + SLACK_ACCESS_TOKEN, {
                 headers: { "content-type": "application/x-www-form-urlencoded" }
             })
             .then( response => response.json() )
+            // Save Slack Id: Username pair
             .then( userList => {
-                // Save Slack Id: Username pair
                 for( var i = 0; i < userList.members.length; i++ ) {
-                    userNameObj[ userList.members[i].id ] = userList.members[i].real_name;
+                    userSlackIdArray.push( userList.members[i].id );
+                    userNameArray.push( userList.members[i].real_name );
                 }
-                // In the User Message, replace Slack Id's with Usernames
-                for( var slackId in userNameObj ) {
-                    event.text = event.text.replace( "<@" + slackId + ">", userNameObj[ slackId ] )
+                // In the User's Message, replace Slack Id's with Usernames
+                for( var i = 0; i < userSlackIdArray.length; i++ ) {
+                    event.text = event.text.replace( "<@" + userSlackIdArray[i] + ">", userNameArray[i] );
                 }
             })
+            // Send User's Message to API.AI
             .then( () => {
                 return fetch( 'https://api.dialogflow.com/v1/query?v=20150910', {
                     method: 'POST',
@@ -105,35 +110,22 @@ rtm.on( 'message', ( event ) => {
                 });
             })
             .then( response => response.json() )
+            // Get Response from API.AI
             .then( response => {
-                console.log( response.result );
                 // If the User's request is incomplete, the Slack-Bot asks for more information.
                 // If the User gives a greeting, the Slack-Bot does the same.
                 if( response.result.actionIncomplete
                 || response.result.action === "welcome"
                 || response.result.metadata.intentName === "welcome" ) {
-                    web.chat.postMessage({
+                    intent = null;
+                    return web.chat.postMessage({
                         "channel": event.channel,
                         "text": response.result.fulfillment.speech
                     });
-                    return;
                 }
-                // Else, the User's request is complete, and the Slack-Bot asks the User to Cancel or Confirm it
-                web.chat.postMessage({
-                    "channel": event.channel,
-                    "attachments": [{
-                        "text": response.result.fulfillment.speech,
-                        "fallback": "Unable to confirm a Reminder or Meeting",
-                        "callback_id": "confirm",
-                        "actions": [
-                            { "type": "button", "name": "select", "value": "yes", "text": "Confirm" },
-                            { "type": "button", "name": "select", "value": "no", "text": "Cancel", "style": "danger" }
-                        ]
-                    }]
-                });
-                
+                // Handle event when the User's request is complete
                 var newStatus = {};
-                newStatus.intent = response.result.metadata.intentName;
+                newStatus.intent = intent = response.result.metadata.intentName;
                 newStatus.subject = ( response.result.parameters.subject ? response.result.parameters.subject.join( ' ' ) : null );
                 newStatus.startTime = response.result.parameters.start_time;
                 newStatus.endTime = response.result.parameters.end_time;
@@ -141,8 +133,65 @@ rtm.on( 'message', ( event ) => {
                 newStatus.datePeriod = response.result.parameters[ "date-period" ];
                 newStatus.invitees = response.result.parameters.invitees;     // Invitees for Meetings
                 foundUser.status = newStatus;
-                return foundUser.save();
+                // For Reminders, ask the User for confirmation before setting the Reminder event
+                if( intent === "reminderme:add" ) {
+                    return web.chat.postMessage({
+                        "channel": event.channel,
+                        "attachments": [{
+                            "text": response.result.fulfillment.speech,
+                            "fallback": "Unable to confirm a Reminder",
+                            "callback_id": "reminderConfirm",
+                            "actions": [
+                                { "type": "button", "name": "select", "value": "yes", "text": "Confirm" },
+                                { "type": "button", "name": "select", "value": "no", "text": "Cancel", "style": "danger" }
+                            ]
+                        }]
+                    });
+                }
+                // For Meetings, find all participants with valid Slack Id's or Slack Usernames
+                else if( intent === "meeting:add" ) {
+                    var userFindPromiseArray = [];
+                    for( var i = 0; i < newStatus.invitees.length; i++ ) {
+                        for( var j = 0; j < userSlackIdArray.length; j++ ) {
+                            if( newStatus.invitees[i] === userSlackIdArray[j] || newStatus.invitees[i] === userNameArray[j] ) {
+                                userFindPromiseArray.push( User.findOne( { slackId: userSlackIdArray[i] } );
+                                userInvitedIndexes.push( j );
+                                break;
+                            }
+                        }
+                    }
+                    return Promise.all( userFindPromiseArray )
+                }
             })
+            // For Meetings, If the User is not found, and the SlackId is valid, create a new User with that SlackId
+            .then( userFindReponseArray => {
+                if( intent !== "meeting:add" ) return;
+                var foundUserArray = [];
+                for( var i = 0; i < userFindReponseArray.length; i++ ) {
+                    var currentSlackId = userSlackIdArray[ userInvitedIndexes[i] ];
+                    if( userFindReponseArray[i] ) foundUserArray.push( userFindReponseArray[i] );
+                    else foundUserArray.push( new User({ slackId: currentSlackId }).save() );
+                }
+                return Promise.all( foundUserArray );
+            })
+            // For Meetings, check each User's Google Permissions. If not given, ask that User for Google Permissions.
+            .then( foundUserArray => {
+                if( intent !== "meeting:add" ) return;
+                // If everyone has given Google Permissions, then check their Google Calendars.
+                // If not, ask those that haven't given Permissions to give permissions.
+                var userGooglePermissionArray = [];
+                var allUsersRegistered = true;
+                for( var i = 0; i < foundUserArray.length; i++ ) {
+                    if( !foundUserArray[i].googleTokens || foundUserArray[i].googleTokens.expiry_date < Date.now() ) {
+                        allUsersRegistered = false;
+                    }
+                    else {
+                        userGooglePermissionArray.push( foundUserArray[i] );
+                    }
+                }
+                return Promise.all( userGooglePermissionArray );
+            })
+            .then( () => foundUser.save() )
             .catch( error => console.log( "Error forwaring User message to Api.AI:", error ) );
         }   // End of Else Statement, which forwarded a User's message to Slack-Bot
     }); // End of User.FindOne
@@ -178,7 +227,6 @@ router.get( '/connect/callback', ( req, res ) => {
 // Handle event when User clicks "Cancel" or "Confirm" on the Slack-Bot's interactive message
 router.post( '/slack/action', ( req, res ) => {
     var payload = JSON.parse( req.body.payload );
-    console.log( "Payload:", payload );
     var confirmSelect = payload.actions[0].value;
     var slackId = String( payload.user.id );
     var responseString = "";

@@ -5,3 +5,4 @@ env.sh
 \node_modules
 google_client_secret.json
 slack_secret.json
+test.js

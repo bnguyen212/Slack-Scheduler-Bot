@@ -67,6 +67,16 @@ var InviteSchema = Schema({
     status: { type: String }
 });
 
+// Find or Create a User by SlackId
+UserSchema.statics.findOrCreate = ( slackId ) => {
+    return User.findOne( { slackId: slackId } )
+    .then( foundUser => {
+        if( foundUser ) return foundUser;
+        return new User( { slackId: slackId } ).save();
+    })
+    .catch( error => console.log( "User Find or Create Error:", error ) );
+};
+
 var Reminder = mongoose.model( 'Reminder', ReminderSchema );
 var Meeting = mongoose.model( 'Meeting', MeetingSchema );
 var User = mongoose.model( 'User', UserSchema );
